@@ -1,5 +1,6 @@
 <h1 class="h3 mb-4">Nuevo cliente</h1>
 <form method="post" action="<?= url('clientes/guardar') ?>" class="panel">
+    <?= csrf_field() ?>
     <div class="panel-body">
         <div class="row g-3">
             <div class="col-md-6">

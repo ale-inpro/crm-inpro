@@ -13,6 +13,7 @@ class AsignacionController extends Controller
 {
     public function transferirInpro(): void
     {
+        csrf_verify();
         $user = $this->requireAuth();
         $clienteId = (int) ($_POST['cliente_id'] ?? 0);
         $motivo = trim($_POST['motivo'] ?? 'Transferencia a INPRO');

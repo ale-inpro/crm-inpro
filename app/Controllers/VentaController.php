@@ -47,6 +47,7 @@ class VentaController extends Controller
 
     public function store(): void
     {
+        csrf_verify();
         $user = $this->requireAuth();
         $clienteId = (int) ($_POST['cliente_id'] ?? 0);
         $cliente = (new ClienteModel())->findById($clienteId);
@@ -94,11 +95,12 @@ class VentaController extends Controller
         ]);
 
         flash('success', 'Venta registrada. Pendiente de validación INPRO.');
-        redirect('clientes/ver?id=' . $clienteId);
+        redirect('clientes/ver?id=' . $clienteId . '#tabVentas');
     }
 
     public function validar(): void
     {
+        csrf_verify();
         $user = $this->requireInpro();
         $ventaId = (int) ($_POST['venta_id'] ?? 0);
         $reglaId = (int) ($_POST['regla_comision_id'] ?? 0);

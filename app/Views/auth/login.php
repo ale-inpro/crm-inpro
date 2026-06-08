@@ -1,5 +1,6 @@
 <?php require APP_PATH . '/Views/partials/alerts.php'; ?>
 <form method="post" action="<?= url('login') ?>">
+    <?= csrf_field() ?>
     <div class="mb-3">
         <label class="form-label">Email</label>
         <input type="email" name="email" class="form-control" required autofocus

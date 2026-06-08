@@ -1,6 +1,16 @@
-<?php if ($msg = flash('success')): ?>
-    <div class="alert alert-success"><?= e($msg) ?></div>
-<?php endif; ?>
-<?php if ($msg = flash('error')): ?>
-    <div class="alert alert-danger"><?= e($msg) ?></div>
+<?php
+$flashSuccess = flash('success');
+$flashError   = flash('error');
+?>
+<?php if ($flashSuccess || $flashError): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    <?php if ($flashSuccess): ?>
+    showToast(<?= json_encode($flashSuccess) ?>, 'success');
+    <?php endif; ?>
+    <?php if ($flashError): ?>
+    showToast(<?= json_encode($flashError) ?>, 'error');
+    <?php endif; ?>
+});
+</script>
 <?php endif; ?>

@@ -9,6 +9,7 @@ use App\Models\ClienteModel;
 use App\Models\ContactoModel;
 use App\Models\TareaModel;
 use App\Models\VentaModel;
+use App\Models\VisitaModel;
 use App\Services\ClienteService;
 
 class ClienteController extends Controller
@@ -56,6 +57,7 @@ class ClienteController extends Controller
 
     public function store(): void
     {
+        csrf_verify();
         $user = $this->requireAuth();
         $cifNorm = cif_normalize($_POST['cif'] ?? null);
 
@@ -135,6 +137,7 @@ class ClienteController extends Controller
                 ['label' => 'Clientes', 'url' => 'clientes'],
                 ['label' => $cliente['razon_social']],
             ],
+            'visitasProgramadas' => (new VisitaModel())->programadasByCliente($id),
         ]);
     }
 }

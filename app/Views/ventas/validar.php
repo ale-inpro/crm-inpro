@@ -22,6 +22,7 @@
                     <span class="badge bg-warning text-dark">Pendiente</span>
                 </div>
                 <form method="post" action="<?= url('ventas/validar') ?>" class="row g-2 align-items-end">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="venta_id" value="<?= (int) $v['id'] ?>">
                     <div class="col-md-8">
                         <label class="form-label small">Regla de comisión</label>

@@ -18,6 +18,7 @@ class AuthController extends Controller
 
     public function login(): void
     {
+        csrf_verify();
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 

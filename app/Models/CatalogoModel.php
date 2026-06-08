@@ -22,9 +22,12 @@ class CatalogoModel extends Model
         return $this->db->query("SELECT id, nombre FROM usuarios WHERE rol = 'inpro' AND activo = 1")->fetchAll();
     }
 
-    public function usuariosEmpresa(int $empresaId): array
+    public function usuariosEmpresa(int $empresaId = 0): array
     {
-        $stmt = $this->db->prepare("SELECT id, nombre FROM usuarios WHERE rol = 'empresa' AND empresa_colaboradora_id = ? AND activo = 1");
+        if ($empresaId === 0) {
+            return $this->db->query("SELECT id, nombre FROM usuarios WHERE rol = 'empresa' AND activo = 1 ORDER BY nombre")->fetchAll();
+        }
+        $stmt = $this->db->prepare("SELECT id, nombre FROM usuarios WHERE rol = 'empresa' AND empresa_colaboradora_id = ? AND activo = 1 ORDER BY nombre");
         $stmt->execute([$empresaId]);
         return $stmt->fetchAll();
     }

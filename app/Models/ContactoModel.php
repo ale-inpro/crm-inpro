@@ -16,13 +16,17 @@ class ContactoModel extends Model
 
     public function create(int $clienteId, array $data): void
     {
+        $esPrincipal = !empty($data['es_principal']) ? 1 : 0;
+        if ($esPrincipal) {
+            $this->db->prepare('UPDATE contactos SET es_principal = 0 WHERE cliente_id = ?')->execute([$clienteId]);
+        }
         $stmt = $this->db->prepare('
             INSERT INTO contactos (cliente_id, nombre, cargo, email, telefono, es_principal)
             VALUES (?,?,?,?,?,?)
         ');
         $stmt->execute([
             $clienteId, $data['nombre'], $data['cargo'], $data['email'], $data['telefono'],
-            $data['es_principal'] ?? 0,
+            $esPrincipal,
         ]);
     }
 }

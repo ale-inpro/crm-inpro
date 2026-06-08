@@ -38,6 +38,7 @@ class PipelineController extends Controller
 
     public function mover(): void
     {
+        csrf_verify();
         $user = $this->requireAuth();
         $clienteId = (int) ($_POST['cliente_id'] ?? 0);
         $estadoId = (int) ($_POST['estado_id'] ?? 0);

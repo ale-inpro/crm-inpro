@@ -7,6 +7,20 @@ use App\Core\Model;
 
 class ClienteModel extends Model
 {
+    public function optionsForUser(array $user): array
+    {
+        $sql = 'SELECT c.id, c.razon_social FROM clientes c WHERE c.deleted_at IS NULL';
+        $params = [];
+        if ($user['rol'] === 'empresa') {
+            $sql .= ' AND c.empresa_colaboradora_id = ?';
+            $params[] = $user['empresa_colaboradora_id'];
+        }
+        $sql .= ' ORDER BY c.razon_social ASC';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function listForUser(array $user, array $filtros = []): array
     {
         $sql = '
@@ -99,11 +113,12 @@ class ClienteModel extends Model
     {
         $items = [];
 
-        $visitas = $this->db->prepare('
+        $visitas = $this->db->prepare("
             SELECT v.*, u.nombre AS usuario_nombre FROM visitas v
             JOIN usuarios u ON u.id = v.usuario_id
-            WHERE v.cliente_id = ? ORDER BY v.fecha_visita DESC
-        ');
+            WHERE v.cliente_id = ? AND v.estado = 'realizada'
+            ORDER BY v.fecha_visita DESC
+        ");
         $visitas->execute([$clienteId]);
         foreach ($visitas->fetchAll() as $v) {
             $items[] = ['tipo' => 'visita', 'fecha' => $v['fecha_visita'], 'data' => $v];
@@ -128,6 +143,16 @@ class ClienteModel extends Model
         $asig->execute([$clienteId]);
         foreach ($asig->fetchAll() as $a) {
             $items[] = ['tipo' => 'asignacion', 'fecha' => $a['created_at'], 'data' => $a];
+        }
+
+        $emails = $this->db->prepare('
+            SELECT ae.*, u.nombre AS usuario_nombre FROM actividad_emails ae
+            JOIN usuarios u ON u.id = ae.usuario_id
+            WHERE ae.cliente_id = ? ORDER BY ae.enviado_at DESC
+        ');
+        $emails->execute([$clienteId]);
+        foreach ($emails->fetchAll() as $e) {
+            $items[] = ['tipo' => 'email', 'fecha' => $e['enviado_at'], 'data' => $e];
         }
 
         usort($items, fn($a, $b) => strcmp($b['fecha'], $a['fecha']));
