@@ -1,0 +1,298 @@
+:root {
+    --inpro-green: #1a7f4b;
+    --inpro-green-dark: #145f38;
+    --inpro-green-light: #e8f5ee;
+    --inpro-sidebar: #1e3d2f;
+    --inpro-sidebar-hover: #2a5240;
+    --inpro-accent: #f59e0b;
+    --inpro-danger: #dc3545;
+    --inpro-bg: #f0f2f5;
+    --inpro-card: #ffffff;
+    --inpro-border: #dee2e6;
+    --inpro-text: #212529;
+    --inpro-muted: #6c757d;
+    --sidebar-width: 240px;
+    --topbar-height: 56px;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  
+  * { box-sizing: border-box; }
+  
+  body.app-body {
+    margin: 0;
+    background: var(--inpro-bg);
+    color: var(--inpro-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  
+  /* ---- Layout Odoo-like ---- */
+  .app-wrapper { display: flex; min-height: 100vh; }
+  
+  .app-sidebar {
+    width: var(--sidebar-width);
+    background: var(--inpro-sidebar);
+    color: #fff;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 1000;
+  }
+  
+  .app-sidebar .logo {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .app-sidebar .logo img { max-height: 40px; max-width: 100%; }
+  
+  .app-nav { padding: .75rem 0; flex: 1; overflow-y: auto; }
+  
+  .app-nav a {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem 1.25rem;
+    color: rgba(255,255,255,.85);
+    text-decoration: none;
+    font-size: .9rem;
+    transition: background .15s;
+  }
+  .app-nav a:hover, .app-nav a.active {
+    background: var(--inpro-sidebar-hover);
+    color: #fff;
+  }
+  .app-nav a i { font-size: 1.1rem; width: 1.25rem; text-align: center; }
+  
+  .app-nav .nav-section {
+    padding: .5rem 1.25rem .25rem;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: rgba(255,255,255,.45);
+  }
+  
+  .app-sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255,255,255,.1);
+    font-size: .8rem;
+    color: rgba(255,255,255,.6);
+  }
+  
+  .app-main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  
+  .app-topbar {
+    height: var(--topbar-height);
+    background: var(--inpro-card);
+    border-bottom: 1px solid var(--inpro-border);
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    gap: 1rem;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .app-breadcrumb {
+    font-size: .9rem;
+    color: var(--inpro-muted);
+    margin: 0;
+  }
+  .app-breadcrumb strong { color: var(--inpro-text); }
+  
+  .app-content { padding: 1.5rem; flex: 1; }
+  
+  /* ---- Cards / KPI (estilo Odoo stat buttons) ---- */
+  .stat-card {
+    background: var(--inpro-card);
+    border: 1px solid var(--inpro-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    box-shadow: var(--shadow);
+    transition: transform .15s, box-shadow .15s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    color: inherit;
+  }
+  .stat-card .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--inpro-green); }
+  .stat-card .stat-label { font-size: .8rem; color: var(--inpro-muted); text-transform: uppercase; }
+  .stat-card .stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--inpro-green-light);
+    color: var(--inpro-green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+  }
+  
+  /* ---- Panel / card genérica ---- */
+  .panel {
+    background: var(--inpro-card);
+    border: 1px solid var(--inpro-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1rem;
+  }
+  .panel-header {
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--inpro-border);
+    font-weight: 600;
+    font-size: .95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-body { padding: 1rem; }
+  
+  /* ---- Botones INPRO ---- */
+  .btn-inpro {
+    background: var(--inpro-green);
+    border-color: var(--inpro-green);
+    color: #fff;
+  }
+  .btn-inpro:hover {
+    background: var(--inpro-green-dark);
+    border-color: var(--inpro-green-dark);
+    color: #fff;
+  }
+  
+  /* ---- Chatter / timeline (Odoo) ---- */
+  .chatter { list-style: none; padding: 0; margin: 0; }
+  .chatter-item {
+    display: flex;
+    gap: .75rem;
+    padding: .75rem 0;
+    border-bottom: 1px solid var(--inpro-border);
+  }
+  .chatter-item:last-child { border-bottom: none; }
+  .chatter-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--inpro-green-light);
+    color: var(--inpro-green);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: .85rem;
+    flex-shrink: 0;
+  }
+  .chatter-meta { font-size: .75rem; color: var(--inpro-muted); }
+  .chatter-body { font-size: .9rem; }
+  
+  /* ---- Tabs ficha cliente ---- */
+  .nav-tabs-inpro { border-bottom: 2px solid var(--inpro-border); }
+  .nav-tabs-inpro .nav-link {
+    border: none;
+    color: var(--inpro-muted);
+    padding: .6rem 1rem;
+    font-size: .9rem;
+  }
+  .nav-tabs-inpro .nav-link.active {
+    color: var(--inpro-green);
+    border-bottom: 2px solid var(--inpro-green);
+    margin-bottom: -2px;
+    background: transparent;
+  }
+  
+  /* ---- Kanban ---- */
+  .kanban-board {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    min-height: 400px;
+  }
+  .kanban-column {
+    min-width: 280px;
+    max-width: 280px;
+    background: #e9ecef;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+  }
+  .kanban-column-header {
+    padding: .75rem;
+    font-weight: 600;
+    font-size: .85rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    color: #fff;
+  }
+  .kanban-column-body {
+    padding: .5rem;
+    flex: 1;
+    min-height: 100px;
+  }
+  .kanban-card {
+    background: #fff;
+    border-radius: 6px;
+    padding: .75rem;
+    margin-bottom: .5rem;
+    box-shadow: var(--shadow);
+    cursor: grab;
+    font-size: .85rem;
+  }
+  .kanban-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .kanban-card .card-title { font-weight: 600; margin-bottom: .25rem; }
+  .kanban-card .card-meta { font-size: .75rem; color: var(--inpro-muted); }
+  
+  /* ---- Tareas (lista tipo Odoo) ---- */
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .6rem 0;
+    border-bottom: 1px solid var(--inpro-border);
+  }
+  .task-item.done { opacity: .55; text-decoration: line-through; }
+  .task-priority-alta { border-left: 3px solid var(--inpro-danger); padding-left: .5rem; }
+  .task-priority-media { border-left: 3px solid var(--inpro-accent); padding-left: .5rem; }
+  
+  /* ---- Tablas DataTables override ---- */
+  table.dataTable { font-size: .9rem; }
+  .dataTables_wrapper .dataTables_filter input {
+    border: 1px solid var(--inpro-border);
+    border-radius: 6px;
+    padding: .35rem .5rem;
+  }
+  
+  /* ---- Login ---- */
+  .login-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--inpro-sidebar) 0%, var(--inpro-green) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .login-card .logo { text-align: center; margin-bottom: 1.5rem; }
+  .login-card .logo img { max-height: 48px; }
+  
+  /* ---- Badges ---- */
+  .badge-primera-visita { background: var(--inpro-accent) !important; }
+  
+  /* Responsive: sidebar colapsada en móvil (opcional fase posterior) */
+  @media (max-width: 768px) {
+    .app-sidebar { width: 64px; }
+    .app-sidebar .logo span, .app-nav a span, .app-nav .nav-section, .app-sidebar-footer span { display: none; }
+    .app-main { margin-left: 64px; }
+  }

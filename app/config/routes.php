@@ -1,0 +1,30 @@
+<?php
+return [
+    'GET' => [
+        '' => ['AuthController', 'loginForm'],
+        'login' => ['AuthController', 'loginForm'],
+        'logout' => ['AuthController', 'logout'],
+        'dashboard' => ['DashboardController', 'index'],
+        'clientes' => ['ClienteController', 'index'],
+        'clientes/nuevo' => ['ClienteController', 'create'],
+        'clientes/ver' => ['ClienteController', 'show'],
+        'visitas' => ['VisitaController', 'index'],
+        'ventas' => ['VentaController', 'index'],
+        'ventas/validar' => ['VentaController', 'pendientesValidacion'],
+        'comisiones' => ['ComisionController', 'index'],
+        'tareas' => ['TareaController', 'index'],
+        'pipeline' => ['PipelineController', 'index'],
+        'export/clientes' => ['ExportController', 'clientes'],
+    ],
+    'POST' => [
+        'login' => ['AuthController', 'login'],
+        'clientes/guardar' => ['ClienteController', 'store'],
+        'clientes/transferir-inpro' => ['AsignacionController', 'transferirInpro'],
+        'visitas/guardar' => ['VisitaController', 'store'],
+        'ventas/guardar' => ['VentaController', 'store'],
+        'ventas/validar' => ['VentaController', 'validar'],
+        'tareas/guardar' => ['TareaController', 'store'],
+        'tareas/completar' => ['TareaController', 'completar'],
+        'pipeline/mover' => ['PipelineController', 'mover'],
+    ],
+];
