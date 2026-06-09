@@ -47,6 +47,29 @@ class DashboardModel extends Model
         ];
     }
 
+    public function tareasUrgentes(array $user, int $limit = 8): array
+    {
+        $sql = '
+            SELECT t.*, c.razon_social
+            FROM tareas t
+            JOIN clientes c ON c.id = t.cliente_id
+            WHERE t.estado = \'pendiente\'
+              AND c.deleted_at IS NULL
+              AND t.fecha_vencimiento <= CURDATE()
+        ';
+        $params = [];
+
+        if ($user['rol'] === 'empresa') {
+            $sql .= ' AND t.asignado_a_id = ?';
+            $params[] = $user['id'];
+        }
+
+        $sql .= ' ORDER BY t.fecha_vencimiento ASC LIMIT ' . (int) $limit;
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function tareasPendientes(array $user, int $limit = 5): array
     {
         $sql = '

@@ -33,6 +33,8 @@ class PipelineController extends Controller
             'title' => 'Pipeline',
             'columnas' => $columnas,
             'breadcrumbs' => [['label' => 'Pipeline']],
+            'backUrl' => 'dashboard',
+            'backLabel' => 'Inicio',
         ]);
     }
 

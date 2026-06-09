@@ -10,6 +10,7 @@ use App\Models\VentaModel;
 use App\Services\AuditoriaService;
 use App\Services\ClienteService;
 use App\Services\ComisionService;
+use App\Services\TarifaService;
 
 class VentaController extends Controller
 {
@@ -20,6 +21,8 @@ class VentaController extends Controller
             'title' => 'Ventas',
             'ventas' => (new VentaModel())->listForUser($user),
             'breadcrumbs' => [['label' => 'Ventas']],
+            'backUrl' => 'dashboard',
+            'backLabel' => 'Inicio',
         ]);
     }
 
@@ -42,6 +45,8 @@ class VentaController extends Controller
                 ['label' => 'Ventas', 'url' => 'ventas'],
                 ['label' => 'Validar'],
             ],
+            'backUrl' => 'ventas',
+            'backLabel' => 'Ventas',
         ]);
     }
 
@@ -57,24 +62,23 @@ class VentaController extends Controller
             redirect('clientes');
         }
 
-        $productoId = (int) ($_POST['producto_id'] ?? 0);
-        $productos = (new CatalogoModel())->productos();
-        $producto = null;
-        foreach ($productos as $p) {
-            if ((int) $p['id'] === $productoId) {
-                $producto = $p;
-                break;
-            }
+        $numObras = (int) ($_POST['num_obras'] ?? 0);
+        if ($numObras <= 0) {
+            flash('error', 'Indica el número de obras.');
+            redirect('clientes/ver?id=' . $clienteId . '#tabVentas');
         }
 
-        if (!$producto) {
-            flash('error', 'Producto no válido.');
-            redirect('clientes/ver?id=' . $clienteId);
+        $tarifaSvc = new TarifaService();
+        $tarifaId = $tarifaSvc->tarifaIdParaCliente($clienteId);
+        $tramo = $tarifaId ? $tarifaSvc->resolverTramo($tarifaId, $numObras) : null;
+
+        if (!$tramo) {
+            flash('error', 'No hay tramo de tarifa para ese número de obras.');
+            redirect('clientes/ver?id=' . $clienteId . '#tabVentas');
         }
 
-        $importe = (float) $producto['precio_anual_eur'];
         $descuento = (float) ($_POST['descuento_pct'] ?? 0);
-        $final = round($importe * (1 - $descuento / 100), 2);
+        $importes = $tarifaSvc->calcularImportes($tramo, $descuento);
 
         $atribucion = is_empresa() ? 'empresa' : 'inpro';
         if (is_inpro() && $cliente['empresa_colaboradora_id']) {
@@ -83,11 +87,14 @@ class VentaController extends Controller
 
         (new VentaModel())->create([
             'cliente_id' => $clienteId,
-            'producto_id' => $productoId,
+            'num_obras' => $numObras,
+            'tarifa_tramo_id' => (int) $tramo['id'],
+            'precio_mes_eur' => $importes['precio_mes_eur'],
+            'stripe_price_id' => $importes['stripe_price_id'],
             'registrado_por_id' => (int) $user['id'],
-            'importe_anual_eur' => $importe,
+            'importe_anual_eur' => $importes['importe_anual_eur'],
             'descuento_pct' => $descuento,
-            'importe_final_eur' => $final,
+            'importe_final_eur' => $importes['importe_final_eur'],
             'fecha_propuesta' => $_POST['fecha_propuesta'] ?? date('Y-m-d'),
             'fecha_cierre' => $_POST['fecha_cierre'] ?? date('Y-m-d'),
             'atribucion_cierre' => $atribucion,

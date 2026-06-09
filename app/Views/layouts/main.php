@@ -10,31 +10,32 @@
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
     <link href="<?= url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
-<body class="app-body">
+<body class="app-body app-has-mobile-nav">
+<?php
+$pendingVentas = 0;
+if (function_exists('is_inpro') && is_inpro()) {
+    $pendingVentas = (int) (new \App\Models\DashboardModel())->statsInpro()['ventas_pendientes'];
+}
+$proximasVisitasCount = 0;
+$tareasPendientesCount = 0;
+$currentUser = current_user();
+if ($currentUser) {
+    $horas = (int) env('AVISO_VISITAS_HORAS', 48);
+    $proximasVisitasCount  = count((new \App\Services\NotificacionService())->proximasVisitas($currentUser, $horas));
+    $tareasPendientesCount = (new \App\Models\TareaModel())->countPendienteForUser($currentUser);
+}
+?>
 <div class="app-wrapper">
     <?php require APP_PATH . '/Views/partials/sidebar.php'; ?>
     <div class="app-main">
-        <?php
-        $pendingVentas = 0;
-        if (function_exists('is_inpro') && is_inpro()) {
-            $pendingVentas = (int) (new \App\Models\DashboardModel())->statsInpro()['ventas_pendientes'];
-        }
-        $proximasVisitasCount = 0;
-        $tareasPendientesCount = 0;
-        $currentUser = current_user();
-        if ($currentUser) {
-            $horas = (int) env('AVISO_VISITAS_HORAS', 48);
-            $proximasVisitasCount  = count((new \App\Services\NotificacionService())->proximasVisitas($currentUser, $horas));
-            $tareasPendientesCount = (new \App\Models\TareaModel())->countPendienteForUser($currentUser);
-        }
-        require APP_PATH . '/Views/partials/topbar.php';
-        ?>
+        <?php require APP_PATH . '/Views/partials/topbar.php'; ?>
         <div class="app-content animate-fade-up">
             <?php require APP_PATH . '/Views/partials/alerts.php'; ?>
             <?= $content ?>
         </div>
     </div>
 </div>
+<?php require APP_PATH . '/Views/partials/bottom-nav.php'; ?>
 
 <!-- CSRF global para peticiones AJAX -->
 <input type="hidden" name="_csrf" id="globalCsrf" value="<?= e(csrf_token()) ?>">

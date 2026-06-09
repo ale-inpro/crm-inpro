@@ -15,6 +15,8 @@ class ComisionController extends Controller
             'title' => is_inpro() ? 'Comisiones' : 'Mis comisiones',
             'comisiones' => (new ComisionModel())->listForUser($user),
             'breadcrumbs' => [['label' => is_inpro() ? 'Comisiones' : 'Mis comisiones']],
+            'backUrl' => 'dashboard',
+            'backLabel' => 'Inicio',
         ]);
     }
 }

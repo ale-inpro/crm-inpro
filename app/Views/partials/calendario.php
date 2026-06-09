@@ -1,6 +1,7 @@
 <?php
 $calId = 'cal-' . uniqid();
 $calClienteId = isset($cliente) && is_array($cliente) ? (int) ($cliente['id'] ?? 0) : 0;
+$isMobile = true; // se ajusta en JS
 ?>
 <div id="<?= $calId ?>" data-cliente-id="<?= $calClienteId ?>"></div>
 <script>
@@ -12,11 +13,17 @@ document.addEventListener('DOMContentLoaded', function () {
     var apiUrl    = '<?= url('api/calendario/eventos') ?>';
     if (clienteId !== '0') apiUrl += '?cliente_id=' + clienteId;
 
+    var mobile = window.matchMedia('(max-width: 991.98px)').matches;
+
     var cal = new FullCalendar.Calendar(el, {
-        initialView: 'dayGridMonth',
+        initialView: mobile ? 'listWeek' : 'dayGridMonth',
         locale: 'es',
-        height: clienteId !== '0' ? 540 : 660,
-        headerToolbar: {
+        height: mobile ? 'auto' : (clienteId !== '0' ? 540 : 660),
+        headerToolbar: mobile ? {
+            left: 'prev,next',
+            center: 'title',
+            right: 'listWeek,dayGridMonth'
+        } : {
             left:   'prev,next today',
             center: 'title',
             right:  'dayGridMonth,timeGridWeek,listWeek'
@@ -24,7 +31,6 @@ document.addEventListener('DOMContentLoaded', function () {
         buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Lista' },
         events: apiUrl,
         eventDidMount: function (info) {
-            // Tooltip con descripción al hacer hover
             var props = info.event.extendedProps;
             var desc  = props.descripcion || '';
             var lines = [];
@@ -36,7 +42,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 info.el.title = lines.join('\n');
                 info.el.style.cursor = 'pointer';
             }
-            // Estrella en eventos destacados
             if (props.destacada) {
                 info.el.insertAdjacentHTML('afterbegin', '<span style="margin-right:2px;opacity:.9">⭐</span>');
             }

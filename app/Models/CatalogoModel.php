@@ -32,11 +32,6 @@ class CatalogoModel extends Model
         return $stmt->fetchAll();
     }
 
-    public function productos(): array
-    {
-        return $this->db->query('SELECT * FROM catalogo_productos WHERE activo = 1 ORDER BY precio_anual_eur')->fetchAll();
-    }
-
     public function reglasComision(): array
     {
         return $this->db->query('SELECT * FROM reglas_comision WHERE activo = 1 ORDER BY porcentaje DESC')->fetchAll();

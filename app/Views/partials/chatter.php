@@ -35,7 +35,16 @@
                             <div class="mt-1 text-muted"><?= e($item['data']['notas']) ?></div>
                         <?php endif; ?>
                     <?php elseif ($item['tipo'] === 'asignacion'): ?>
-                        <?= e(str_replace('_', ' ', $item['data']['tipo'])) ?>
+                        <?php
+                        $tipoAsig = $item['data']['tipo'] ?? '';
+                        $textoAsig = match ($tipoAsig) {
+                            'transferencia_inpro' => 'Transferencia de gestión a INPRO',
+                            'transferencia_empresa' => 'Transferencia de gestión a empresa colaboradora',
+                            'asignacion_inicial' => 'Asignación a empresa colaboradora',
+                            default => ucfirst(str_replace('_', ' ', $tipoAsig)),
+                        };
+                        ?>
+                        <?= e($textoAsig) ?>
                         <?php if (!empty($item['data']['motivo'])): ?>
                             — <?= e($item['data']['motivo']) ?>
                         <?php endif; ?>

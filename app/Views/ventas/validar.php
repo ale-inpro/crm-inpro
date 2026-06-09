@@ -1,4 +1,4 @@
-<h1 class="h3 mb-4"><i class="bi bi-patch-check me-2"></i>Validar ventas</h1>
+<h1 class="h3 mb-3 mb-lg-4 mobile-hide-heading"><i class="bi bi-patch-check me-2"></i>Validar ventas</h1>
 
 <?php if (empty($ventas)): ?>
     <div class="alert alert-success"><i class="bi bi-check-circle"></i> No hay ventas pendientes de validación.</div>
@@ -7,24 +7,24 @@
         <?php $sugerida = $sugerencias[$v['id']] ?? null; ?>
         <div class="panel mb-3">
             <div class="panel-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
+                <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                    <div class="min-w-0">
                         <h2 class="h6 mb-1">
                             <a href="<?= url('clientes/ver?id=' . $v['cliente_id']) ?>"><?= e($v['razon_social']) ?></a>
-                            — <?= e($v['producto_nombre']) ?>
                         </h2>
+                        <p class="small mb-1"><?= e($v['concepto_venta'] ?? '—') ?></p>
                         <p class="small text-muted mb-0">
-                            <strong><?= number_format((float) $v['importe_final_eur'], 2, ',', '.') ?> €</strong> ·
-                            Registrada por <?= e($v['registrado_por_nombre']) ?> ·
-                            Colaborador: <?= e($v['empresa_colaboradora_nombre'] ?? '—') ?>
+                            <strong class="text-dark"><?= number_format((float) $v['importe_final_eur'], 2, ',', '.') ?> €</strong> ·
+                            <?= e($v['registrado_por_nombre']) ?> ·
+                            Colab.: <?= e($v['empresa_colaboradora_nombre'] ?? '—') ?>
                         </p>
                     </div>
-                    <span class="badge bg-warning text-dark">Pendiente</span>
+                    <span class="badge bg-warning text-dark flex-shrink-0">Pendiente</span>
                 </div>
-                <form method="post" action="<?= url('ventas/validar') ?>" class="row g-2 align-items-end">
+                <form method="post" action="<?= url('ventas/validar') ?>" class="row g-2">
                     <?= csrf_field() ?>
                     <input type="hidden" name="venta_id" value="<?= (int) $v['id'] ?>">
-                    <div class="col-md-8">
+                    <div class="col-12 col-md-8">
                         <label class="form-label small">Regla de comisión</label>
                         <select name="regla_comision_id" class="form-select" required>
                             <?php foreach ($reglas as $r): ?>
@@ -35,8 +35,9 @@
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <button class="btn btn-success w-100"><i class="bi bi-check-lg"></i> Validar venta</button>
+                    <div class="col-12 col-md-4 d-grid">
+                        <label class="form-label small d-none d-md-block">&nbsp;</label>
+                        <button class="btn btn-success"><i class="bi bi-check-lg"></i> Validar venta</button>
                     </div>
                 </form>
             </div>

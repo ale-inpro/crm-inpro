@@ -16,7 +16,7 @@ class TareaController extends Controller
     public function index(): void
     {
         $user      = $this->requireAuth();
-        $vista     = $_GET['vista'] ?? 'pipeline';
+        $vista     = $_GET['vista'] ?? 'lista';
         $clienteId = !empty($_GET['cliente_id']) ? (int) $_GET['cliente_id'] : null;
         $model     = new TareaModel();
         $todas     = $model->listForUser($user, null, $clienteId);
@@ -36,6 +36,8 @@ class TareaController extends Controller
                 ? array_merge((new CatalogoModel())->usuariosInpro(), (new CatalogoModel())->usuariosEmpresa(0))
                 : [['id' => $user['id'], 'nombre' => $user['nombre']]],
             'breadcrumbs' => [['label' => 'Tareas']],
+            'backUrl' => 'dashboard',
+            'backLabel' => 'Inicio',
         ]);
     }
 

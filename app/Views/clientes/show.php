@@ -1,44 +1,155 @@
-<?php $cid = (int) $cliente['id']; ?>
+<?php
+$cid = (int) $cliente['id'];
+$estadoActualId = (int) ($cliente['estado_pipeline_id'] ?? 0);
+$totalActividad = !empty($actividadCliente) ? array_sum($actividadCliente) : 0;
+$msgEliminar = $totalActividad > 0
+    ? 'Este cliente tiene actividad registrada y no puede eliminarse.'
+    : '¿Eliminar el cliente «' . ($cliente['razon_social'] ?? '') . '»? Esta acción no se puede deshacer.';
+$pendTareas = count(array_filter($tareas, fn($t) => $t['estado'] === 'pendiente'));
+$tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
+?>
 
 <!-- ── CABECERA COMPACTA ── -->
 <div class="client-header animate-fade-up">
     <div class="client-header-top">
         <div>
-            <h1 class="mb-1"><?= e($cliente['razon_social']) ?></h1>
-            <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+            <h1 class="mb-1 mobile-hide-heading"><?= e($cliente['razon_social']) ?></h1>
+            <!-- Móvil: badges reducidos -->
+            <div class="d-flex align-items-center gap-2 flex-wrap mt-1 d-lg-none">
+                <?php if ($canEdit): ?>
+                <button type="button"
+                        class="badge rounded-pill px-3 py-2 border-0 cliente-estado-badge"
+                        style="background:<?= e($cliente['color_hex'] ?? '#6c757d') ?>;font-size:.78rem"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#cambiarEtapaOffcanvas">
+                    <?= e($cliente['estado_nombre'] ?? '—') ?> <i class="bi bi-chevron-down ms-1"></i>
+                </button>
+                <?php else: ?>
                 <span class="badge rounded-pill px-3 py-1" style="background:<?= e($cliente['color_hex'] ?? '#6c757d') ?>;font-size:.78rem">
                     <?= e($cliente['estado_nombre'] ?? '—') ?>
                 </span>
-                <?php if (is_empresa() && $cliente['modo_acceso_empresa'] === 'lectura'): ?>
-                    <span class="badge bg-secondary rounded-pill"><i class="bi bi-eye me-1"></i>Solo lectura</span>
-                <?php elseif (is_inpro() && $cliente['modo_acceso_empresa'] === 'lectura'): ?>
-                    <span class="badge bg-light text-secondary border rounded-pill"><i class="bi bi-building me-1"></i>Empresa: solo lectura</span>
+                <?php endif; ?>
+                <?php if (!$cliente['primera_visita_realizada']): ?>
+                    <span class="badge badge-primera-visita rounded-pill">Sin 1ª visita</span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($cliente['empresa_colaboradora_id'])): ?>
+            <p class="d-lg-none small text-muted mb-0 mt-1 cliente-sub-meta">
+                <i class="bi bi-person-gear"></i> <?= e($gestorEtiqueta) ?>
+                <?php if (is_empresa()): ?>
+                    · <?= $cliente['modo_acceso_empresa'] === 'lectura' ? 'Solo lectura' : 'Edición' ?>
+                <?php elseif (is_inpro()): ?>
+                    · <?= e($cliente['empresa_colaboradora_nombre'] ?? 'Empresa') ?>: <?= $cliente['modo_acceso_empresa'] === 'lectura' ? 'lectura' : 'edición' ?>
+                <?php endif; ?>
+            </p>
+            <?php endif; ?>
+            <!-- Desktop: badges completos -->
+            <div class="d-none d-lg-flex align-items-center gap-2 flex-wrap mt-1">
+                <?php if ($canEdit): ?>
+                <button type="button"
+                        class="badge rounded-pill px-3 py-2 border-0 cliente-estado-badge"
+                        style="background:<?= e($cliente['color_hex'] ?? '#6c757d') ?>;font-size:.78rem"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#cambiarEtapaOffcanvas">
+                    <?= e($cliente['estado_nombre'] ?? '—') ?> <i class="bi bi-chevron-down ms-1"></i>
+                </button>
+                <?php else: ?>
+                <span class="badge rounded-pill px-3 py-1" style="background:<?= e($cliente['color_hex'] ?? '#6c757d') ?>;font-size:.78rem">
+                    <?= e($cliente['estado_nombre'] ?? '—') ?>
+                </span>
+                <?php endif; ?>
+                <?php if (!empty($cliente['empresa_colaboradora_id'])): ?>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                        <i class="bi bi-person-gear me-1"></i>Gestionado por: <?= e($gestorEtiqueta) ?>
+                    </span>
+                    <?php if (is_empresa() && $cliente['modo_acceso_empresa'] === 'lectura'): ?>
+                        <span class="badge bg-secondary rounded-pill"><i class="bi bi-eye me-1"></i>Tu acceso: solo lectura</span>
+                    <?php elseif (is_empresa() && $cliente['modo_acceso_empresa'] === 'edicion'): ?>
+                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill"><i class="bi bi-pencil me-1"></i>Tu acceso: edición</span>
+                    <?php elseif (is_inpro() && $cliente['modo_acceso_empresa'] === 'lectura'): ?>
+                        <span class="badge bg-light text-secondary border rounded-pill"><i class="bi bi-building me-1"></i><?= e($cliente['empresa_colaboradora_nombre'] ?? 'Empresa') ?>: solo lectura</span>
+                    <?php elseif (is_inpro() && $cliente['modo_acceso_empresa'] === 'edicion'): ?>
+                        <span class="badge bg-light text-secondary border rounded-pill"><i class="bi bi-building me-1"></i><?= e($cliente['empresa_colaboradora_nombre'] ?? 'Empresa') ?>: edición</span>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <?php if (!$cliente['primera_visita_realizada']): ?>
                     <span class="badge badge-primera-visita rounded-pill"><i class="bi bi-flag me-1"></i>Sin 1ª visita</span>
                 <?php endif; ?>
             </div>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
+        <div class="d-flex gap-2 flex-wrap client-header-actions">
             <?php if ($canEdit): ?>
-                <button class="btn btn-inpro btn-sm" data-bs-toggle="modal" data-bs-target="#modalVisita">
-                    <i class="bi bi-geo-alt-fill"></i> Visita
+                <button class="btn btn-inpro btn-sm btn-action-mobile" data-bs-toggle="modal" data-bs-target="#modalVisita">
+                    <i class="bi bi-geo-alt-fill"></i><span class="btn-action-label">Visita</span>
                 </button>
-                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                    <i class="bi bi-cart-plus-fill"></i> Venta
+                <button class="btn btn-success btn-sm btn-action-mobile" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                    <i class="bi bi-cart-plus-fill"></i><span class="btn-action-label">Venta</span>
                 </button>
-                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTarea">
-                    <i class="bi bi-check2-square"></i> Tarea
+                <button class="btn btn-outline-primary btn-sm btn-action-mobile" data-bs-toggle="modal" data-bs-target="#modalTarea">
+                    <i class="bi bi-check2-square"></i><span class="btn-action-label">Tarea</span>
                 </button>
-                <?php if ($cliente['modo_acceso_empresa'] === 'edicion'): ?>
-                <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                    <i class="bi bi-arrow-left-right"></i> Transferir INPRO
+                <?php
+                $tieneMenuMovil = (!empty($canTransferirAInpro) && !empty($usuariosInpro))
+                    || (!empty($canTransferirAEmpresa) && !empty($usuariosEmpresa))
+                    || !empty($canManageCliente);
+                ?>
+                <?php if ($tieneMenuMovil): ?>
+                <div class="dropdown d-lg-none">
+                    <button class="btn btn-outline-secondary btn-sm btn-action-mobile" data-bs-toggle="dropdown" aria-label="Más acciones">
+                        <i class="bi bi-three-dots"></i><span class="btn-action-label">Más</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <?php if (!empty($canTransferirAInpro) && !empty($usuariosInpro)): ?>
+                        <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalTransferirInpro">Transferir a INPRO</button></li>
+                        <?php endif; ?>
+                        <?php if (!empty($canTransferirAEmpresa) && !empty($usuariosEmpresa)): ?>
+                        <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalTransferirEmpresa">Transferir a empresa</button></li>
+                        <?php endif; ?>
+                        <?php if (!empty($canManageCliente)): ?>
+                        <li><a class="dropdown-item" href="<?= url('clientes/editar?id=' . $cid) ?>">Editar cliente</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="<?= url('clientes/eliminar') ?>">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="id" value="<?= $cid ?>">
+                                <button type="submit" class="dropdown-item text-danger"
+                                    <?= ($totalActividad ?? 0) > 0 ? 'disabled' : '' ?>
+                                    <?php if (($totalActividad ?? 0) === 0): ?>data-confirm="<?= e($msgEliminar ?? '') ?>"<?php endif; ?>>
+                                    Eliminar cliente
+                                </button>
+                            </form>
+                        </li>
+                        <?php endif; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($canTransferirAInpro) && !empty($usuariosInpro)): ?>
+                <button class="btn btn-outline-warning btn-sm d-none d-lg-inline-flex" data-bs-toggle="modal" data-bs-target="#modalTransferirInpro">
+                    <i class="bi bi-arrow-left-right"></i> Transferir a INPRO
+                </button>
+                <?php endif; ?>
+                <?php if (!empty($canTransferirAEmpresa) && !empty($usuariosEmpresa)): ?>
+                <button class="btn btn-outline-warning btn-sm d-none d-lg-inline-flex" data-bs-toggle="modal" data-bs-target="#modalTransferirEmpresa">
+                    <i class="bi bi-arrow-left-right"></i> Transferir a empresa
                 </button>
                 <?php endif; ?>
             <?php endif; ?>
-            <a href="<?= url('clientes') ?>" class="btn btn-ghost btn-sm">
-                <i class="bi bi-arrow-left"></i> Volver
-            </a>
+            <?php if (!empty($canManageCliente)): ?>
+                <a href="<?= url('clientes/editar?id=' . $cid) ?>" class="btn btn-outline-secondary btn-sm d-none d-lg-inline-flex" title="Editar cliente">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                <form method="post" action="<?= url('clientes/eliminar') ?>" class="d-none d-lg-inline">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="id" value="<?= $cid ?>">
+                    <button type="submit"
+                            class="btn btn-outline-danger btn-sm"
+                            title="<?= $totalActividad > 0 ? 'No se puede eliminar: tiene actividad' : 'Eliminar cliente' ?>"
+                            <?= $totalActividad > 0 ? 'disabled' : '' ?>
+                            <?php if ($totalActividad === 0): ?>data-confirm="<?= e($msgEliminar) ?>"<?php endif; ?>>
+                        <i class="bi bi-trash"></i> Eliminar
+                    </button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -53,27 +164,45 @@
             <span class="meta-sep"></span>
         <?php endif; ?>
         <?php if ($cliente['telefono_principal'] ?? null): ?>
-            <span class="meta-item"><i class="bi bi-telephone"></i> <?= e($cliente['telefono_principal']) ?></span>
+            <a href="tel:<?= e(preg_replace('/\s+/', '', $cliente['telefono_principal'])) ?>" class="meta-item meta-item-link">
+                <i class="bi bi-telephone"></i> <?= e($cliente['telefono_principal']) ?>
+            </a>
             <span class="meta-sep"></span>
         <?php endif; ?>
         <?php if ($cliente['email_principal'] ?? null): ?>
-            <span class="meta-item"><i class="bi bi-envelope"></i> <?= e($cliente['email_principal']) ?></span>
+            <a href="mailto:<?= e($cliente['email_principal']) ?>" class="meta-item meta-item-link">
+                <i class="bi bi-envelope"></i> <?= e($cliente['email_principal']) ?>
+            </a>
             <span class="meta-sep"></span>
         <?php endif; ?>
         <?php if ($cliente['empresa_colaboradora_nombre'] ?? null): ?>
             <span class="meta-item"><i class="bi bi-building"></i> <?= e($cliente['empresa_colaboradora_nombre']) ?></span>
             <span class="meta-sep"></span>
         <?php endif; ?>
-        <span class="meta-item">
+        <span class="meta-item d-none d-lg-inline">
             <i class="bi bi-<?= $cliente['primera_visita_realizada'] ? 'check-circle-fill text-success' : 'clock text-warning' ?>"></i>
             1ª visita: <?= $cliente['primera_visita_realizada'] ? 'Realizada' : 'Pendiente' ?>
         </span>
     </div>
+    <?php if (($cliente['telefono_principal'] ?? null) || ($cliente['email_principal'] ?? null)): ?>
+    <div class="d-lg-none client-quick-actions mt-2">
+        <?php if ($cliente['telefono_principal'] ?? null): ?>
+        <a href="tel:<?= e(preg_replace('/\s+/', '', $cliente['telefono_principal'])) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
+            <i class="bi bi-telephone-fill"></i> Llamar
+        </a>
+        <?php endif; ?>
+        <?php if ($cliente['email_principal'] ?? null): ?>
+        <a href="mailto:<?= e($cliente['email_principal']) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
+            <i class="bi bi-envelope-fill"></i> Email
+        </a>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
 </div>
 
-<!-- Visitas programadas próximas (si hay) -->
+<!-- Visitas programadas (desktop: arriba de tabs) -->
 <?php if (!empty($visitasProgramadas)): ?>
-<div class="panel animate-fade-up mb-3">
+<div class="panel animate-fade-up mb-3 d-none d-lg-block">
     <div class="panel-header">
         <span><i class="bi bi-calendar-check text-inpro"></i> Próximas visitas programadas</span>
         <span class="badge bg-inpro rounded-pill"><?= count($visitasProgramadas) ?></span>
@@ -134,8 +263,8 @@
 </div>
 <?php endif; ?>
 
-<!-- ── TABS FULL-WIDTH ── -->
-<ul class="nav nav-tabs-inpro mb-3 animate-fade-up" role="tablist">
+<!-- ── TABS DESKTOP (5) ── -->
+<ul class="nav nav-tabs-inpro nav-tabs-scroll mb-3 animate-fade-up flex-nowrap d-none d-lg-flex" role="tablist">
     <li class="nav-item">
         <button class="nav-link active" id="btnTabAgenda" data-bs-toggle="tab" data-bs-target="#tabAgenda">
             <i class="bi bi-calendar3"></i> Agenda
@@ -149,7 +278,6 @@
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabTareas">
             <i class="bi bi-check2-square"></i> Tareas
-            <?php $pendTareas = count(array_filter($tareas, fn($t) => $t['estado'] === 'pendiente')); ?>
             <?php if ($pendTareas > 0): ?>
                 <span class="badge bg-inpro rounded-pill ms-1"><?= $pendTareas ?></span>
             <?php endif; ?>
@@ -170,10 +298,112 @@
     </li>
 </ul>
 
+<!-- ── TABS MÓVIL (3) ── -->
+<ul class="nav nav-tabs-inpro mb-3 animate-fade-up d-lg-none" role="tablist" id="clientTabsMobile">
+    <li class="nav-item flex-fill">
+        <button class="nav-link active w-100" data-bs-toggle="tab" data-bs-target="#tabActividadMob">
+            <i class="bi bi-clock-history"></i> Actividad
+        </button>
+    </li>
+    <li class="nav-item flex-fill">
+        <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tabTareas">
+            <i class="bi bi-check2-square"></i> Tareas
+            <?php if ($pendTareas > 0): ?>
+                <span class="badge bg-inpro rounded-pill ms-1"><?= $pendTareas ?></span>
+            <?php endif; ?>
+        </button>
+    </li>
+    <li class="nav-item flex-fill">
+        <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tabDatosMob">
+            <i class="bi bi-folder2"></i> Datos
+        </button>
+    </li>
+</ul>
+
 <div class="tab-content animate-fade">
 
-    <!-- TAB AGENDA -->
-    <div class="tab-pane fade show active" id="tabAgenda">
+    <!-- TAB ACTIVIDAD (móvil) -->
+    <div class="tab-pane fade show active d-lg-none" id="tabActividadMob">
+        <?php if (!empty($visitasProgramadas)): ?>
+        <div class="panel mb-3">
+            <div class="panel-header">
+                <span><i class="bi bi-calendar-check text-inpro"></i> Próximas visitas</span>
+                <span class="badge bg-inpro rounded-pill"><?= count($visitasProgramadas) ?></span>
+            </div>
+            <div class="panel-body p-0">
+                <?php foreach ($visitasProgramadas as $vp): ?>
+                <div class="visita-mobile-card">
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-semibold"><?= date('d/m/Y H:i', strtotime($vp['fecha_visita'])) ?></div>
+                        <div class="small text-muted"><?= e($vp['usuario_nombre']) ?></div>
+                        <?php if (!empty($vp['recordatorio_enviado_at'])): ?>
+                            <div class="small text-success"><i class="bi bi-envelope-check"></i> Recordatorio enviado</div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($canEdit): ?>
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-label="Acciones visita">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalRealizar"
+                                        data-visita-id="<?= (int) $vp['id'] ?>">
+                                    <i class="bi bi-check-lg me-2"></i> Marcar realizada
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalReagendar"
+                                        data-visita-id="<?= (int) $vp['id'] ?>"
+                                        data-fecha="<?= date('Y-m-d\TH:i', strtotime($vp['fecha_visita'])) ?>">
+                                    <i class="bi bi-calendar2-week me-2"></i> Reagendar
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item btn-recordatorio" data-bs-toggle="modal" data-bs-target="#modalRecordatorio"
+                                        data-visita-id="<?= (int) $vp['id'] ?>"
+                                        data-fecha="<?= e(date('d/m/Y H:i', strtotime($vp['fecha_visita']))) ?>"
+                                        data-fecha-iso="<?= e(date('d/m/Y', strtotime($vp['fecha_visita']))) ?>"
+                                        data-es-remota="<?= (int) $vp['es_remota'] ?>"
+                                        data-usuario="<?= e($vp['usuario_nombre']) ?>">
+                                    <i class="bi bi-envelope me-2"></i> Enviar recordatorio
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="<?= url('visitas/cancelar') ?>">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="visita_id" value="<?= (int) $vp['id'] ?>">
+                                    <input type="hidden" name="redirect" value="clientes/ver?id=<?= $cid ?>#tabActividadMob">
+                                    <button type="submit" class="dropdown-item text-danger"
+                                            data-confirm="¿Cancelar esta visita programada?">
+                                        <i class="bi bi-x-lg me-2"></i> Cancelar visita
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+        <div class="panel">
+            <div class="panel-header"><i class="bi bi-clock-history"></i> Historial de actividad</div>
+            <div class="panel-body">
+                <?php require APP_PATH . '/Views/partials/chatter.php'; ?>
+            </div>
+        </div>
+        <div class="text-center mt-3">
+            <a href="<?= url('tareas?vista=calendario&cliente_id=' . $cid) ?>" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-calendar3"></i> Ver calendario completo
+            </a>
+        </div>
+    </div>
+
+    <!-- TAB AGENDA (desktop) -->
+    <div class="tab-pane fade show active d-none d-lg-block" id="tabAgenda">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-calendar3"></i> Agenda y programación</div>
             <div class="panel-body">
@@ -182,8 +412,8 @@
         </div>
     </div>
 
-    <!-- TAB HISTORIAL -->
-    <div class="tab-pane fade" id="tabHistorial">
+    <!-- TAB HISTORIAL (desktop) -->
+    <div class="tab-pane fade d-none d-lg-block" id="tabHistorial">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-clock-history"></i> Historial de actividad</div>
             <div class="panel-body">
@@ -192,7 +422,7 @@
         </div>
     </div>
 
-    <!-- TAB TAREAS -->
+    <!-- TAB TAREAS (compartido) -->
     <div class="tab-pane fade" id="tabTareas">
         <div class="panel">
             <div class="panel-header">
@@ -208,15 +438,15 @@
                     <p class="text-muted small p-3 mb-0">Sin tareas registradas.</p>
                 <?php else: ?>
                     <?php foreach ($tareas as $t): ?>
-                    <div class="task-item px-3
+                    <div class="task-item px-3 task-item-tappable
                         <?= $t['estado'] === 'completada' ? 'done' : '' ?>
                         <?= $t['estado'] === 'cancelada' ? 'opacity-50' : '' ?>
-                        <?= $t['prioridad'] === 'alta' ? 'task-priority-alta' : ($t['prioridad'] === 'media' ? 'task-priority-media' : '') ?>">
+                        <?= $t['prioridad'] === 'alta' ? 'task-priority-alta' : ($t['prioridad'] === 'media' ? 'task-priority-media' : '') ?>"
+                        onclick="abrirDetalleTarea(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
 
-                        <!-- Estrella -->
                         <button class="btn-star <?= $t['destacada'] ? 'active' : '' ?>"
                                 data-tarea-id="<?= (int) $t['id'] ?>"
-                                onclick="toggleStar(this)"
+                                onclick="event.stopPropagation(); toggleStar(this)"
                                 title="<?= $t['destacada'] ? 'Quitar destacado' : 'Destacar' ?>">★</button>
 
                         <div class="flex-grow-1 min-w-0">
@@ -234,14 +464,33 @@
                             </div>
                         </div>
 
-                        <!-- Acciones -->
                         <?php if ($canEdit): ?>
-                        <div class="d-flex gap-1 flex-shrink-0">
-                            <button class="btn btn-xs btn-ghost text-primary"
-                                    title="Editar"
+                        <div class="d-flex gap-1 flex-shrink-0 align-items-center" onclick="event.stopPropagation()">
+                            <button type="button" class="btn btn-xs btn-ghost text-primary d-lg-none" title="Editar"
+                                    onclick="abrirEditarTareaDirect(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-ghost text-primary d-none d-lg-inline-block" title="Editar"
                                     onclick="abrirEditarTarea(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
                                 <i class="bi bi-pencil"></i>
                             </button>
+                            <div class="dropdown d-lg-none">
+                                <button class="btn btn-xs btn-outline-secondary" data-bs-toggle="dropdown" title="Cambiar estado">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Cambiar a</h6></li>
+                                    <?php foreach (['pendiente','completada','cancelada'] as $est): ?>
+                                        <?php if ($est === $t['estado']) continue; ?>
+                                        <li>
+                                            <button type="button" class="dropdown-item"
+                                                    onclick="tareaMoverEstado(<?= (int) $t['id'] ?>, '<?= $est ?>')">
+                                                <?= ucfirst($est) ?>
+                                            </button>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
                             <?php if ($t['estado'] === 'pendiente'): ?>
                             <form method="post" action="<?= url('tareas/completar') ?>" class="d-inline">
                                 <?= csrf_field() ?>
@@ -249,14 +498,8 @@
                                 <input type="hidden" name="redirect" value="clientes/ver?id=<?= $cid ?>#tabTareas">
                                 <button class="btn btn-xs btn-ghost text-success" title="Completar"><i class="bi bi-check-lg"></i></button>
                             </form>
-                            <form method="post" action="<?= url('tareas/cancelar') ?>" class="d-inline">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="tarea_id" value="<?= (int) $t['id'] ?>">
-                                <input type="hidden" name="redirect" value="clientes/ver?id=<?= $cid ?>#tabTareas">
-                                <button class="btn btn-xs btn-ghost text-secondary" title="Cancelar"><i class="bi bi-x-lg"></i></button>
-                            </form>
                             <?php endif; ?>
-                            <form method="post" action="<?= url('tareas/eliminar') ?>" class="d-inline">
+                            <form method="post" action="<?= url('tareas/eliminar') ?>" class="d-none d-lg-inline">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="tarea_id" value="<?= (int) $t['id'] ?>">
                                 <input type="hidden" name="redirect" value="clientes/ver?id=<?= $cid ?>#tabTareas">
@@ -274,8 +517,10 @@
         </div>
     </div>
 
-    <!-- TAB CONTACTOS -->
-    <div class="tab-pane fade" id="tabContactos">
+<?php require APP_PATH . '/Views/tareas/_tarea-modals.php'; ?>
+
+    <!-- TAB CONTACTOS (desktop) -->
+    <div class="tab-pane fade d-none d-lg-block" id="tabContactos">
         <div class="panel">
         <div class="panel-header">
                 <span><i class="bi bi-people"></i> Contactos</span>
@@ -312,8 +557,8 @@
         </div>
     </div>
 
-    <!-- TAB VENTAS -->
-    <div class="tab-pane fade" id="tabVentas">
+    <!-- TAB VENTAS (desktop) -->
+    <div class="tab-pane fade d-none d-lg-block" id="tabVentas">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-cart-check"></i> Ventas registradas</div>
             <?php if (empty($ventas)): ?>
@@ -323,7 +568,7 @@
                     <?php foreach ($ventas as $v): ?>
                     <div class="d-flex align-items-center justify-content-between px-3 py-3 border-bottom">
                         <div>
-                            <div class="fw-semibold"><?= e($v['producto_nombre']) ?></div>
+                            <div class="fw-semibold"><?= e($v['concepto_venta'] ?? '—') ?></div>
                             <div class="small text-muted"><?= e(date('d/m/Y', strtotime($v['fecha_propuesta'] ?? $v['created_at']))) ?></div>
                         </div>
                         <div class="d-flex align-items-center gap-3">
@@ -338,14 +583,102 @@
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- TAB DATOS (móvil: contactos + ventas) -->
+    <div class="tab-pane fade d-lg-none" id="tabDatosMob">
+        <div class="panel mb-3">
+            <div class="panel-header">
+                <span><i class="bi bi-people"></i> Contactos</span>
+                <?php if ($canEdit): ?>
+                <button class="btn btn-inpro btn-sm" data-bs-toggle="modal" data-bs-target="#modalContacto">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+                <?php endif; ?>
+            </div>
+            <div class="panel-body p-0">
+                <?php if (empty($contactos)): ?>
+                    <p class="text-muted small p-3 mb-0">Sin contactos registrados.</p>
+                <?php else: ?>
+                    <?php foreach ($contactos as $ct): ?>
+                    <div class="d-flex align-items-center gap-3 px-3 py-3 border-bottom">
+                        <div class="chatter-avatar"><?= strtoupper(mb_substr($ct['nombre'], 0, 1)) ?></div>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <?= e($ct['nombre']) ?>
+                                <?php if (!empty($ct['es_principal'])): ?>
+                                    <span class="badge bg-inpro rounded-pill ms-1" style="font-size:.65rem">Principal</span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($ct['cargo']): ?><div class="small text-muted"><?= e($ct['cargo']) ?></div><?php endif; ?>
+                            <div class="small text-muted mt-1">
+                                <?php if ($ct['telefono']): ?>
+                                    <a href="tel:<?= e(preg_replace('/\s+/', '', $ct['telefono'])) ?>" class="text-muted me-2"><i class="bi bi-telephone"></i> <?= e($ct['telefono']) ?></a>
+                                <?php endif; ?>
+                                <?php if ($ct['email']): ?>
+                                    <a href="mailto:<?= e($ct['email']) ?>" class="text-muted"><i class="bi bi-envelope"></i> <?= e($ct['email']) ?></a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-header"><i class="bi bi-cart-check"></i> Ventas</div>
+            <?php if (empty($ventas)): ?>
+                <p class="text-muted small p-3 mb-0">Sin ventas registradas.</p>
+            <?php else: ?>
+                <div class="panel-body p-0">
+                    <?php foreach ($ventas as $v): ?>
+                    <div class="d-flex align-items-center justify-content-between px-3 py-3 border-bottom gap-2">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate"><?= e($v['concepto_venta'] ?? '—') ?></div>
+                            <div class="small text-muted"><?= e(date('d/m/Y', strtotime($v['fecha_propuesta'] ?? $v['created_at']))) ?></div>
+                        </div>
+                        <div class="text-end flex-shrink-0">
+                            <strong class="d-block"><?= number_format((float) $v['importe_final_eur'], 2, ',', '.') ?> €</strong>
+                            <span class="badge rounded-pill bg-<?= $v['estado'] === 'validada' ? 'success' : 'warning text-dark' ?>">
+                                <?= e($v['estado']) ?>
+                            </span>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <?php if ($canEdit): ?>
+<!-- Offcanvas: cambiar etapa pipeline -->
+<div class="offcanvas offcanvas-bottom app-filter-offcanvas" tabindex="-1" id="cambiarEtapaOffcanvas" aria-labelledby="cambiarEtapaOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="cambiarEtapaOffcanvasLabel">Cambiar etapa comercial</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body pt-0">
+        <p class="small text-muted mb-3">Etapa actual: <strong><?= e($cliente['estado_nombre'] ?? '—') ?></strong></p>
+        <div class="list-group list-group-flush">
+            <?php foreach ($estadosPipeline ?? [] as $ep): ?>
+                <?php if ((int) $ep['id'] === $estadoActualId) continue; ?>
+                <button type="button"
+                        class="list-group-item list-group-item-action d-flex align-items-center gap-2 cliente-etapa-btn"
+                        data-estado-id="<?= (int) $ep['id'] ?>"
+                        data-estado-nombre="<?= e($ep['nombre']) ?>">
+                    <span class="rounded-circle d-inline-block flex-shrink-0" style="width:10px;height:10px;background:<?= e($ep['color_hex'] ?? '#6c757d') ?>"></span>
+                    <?= e($ep['nombre']) ?>
+                </button>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
 <!-- ── MODALES ── -->
 
 <!-- Modal Nuevo Contacto -->
 <div class="modal fade" id="modalContacto" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('contactos/guardar') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="cliente_id" value="<?= $cid ?>">
@@ -383,35 +716,80 @@
     </div>
 </div>
 
-<!-- Modal Transferir INPRO -->
-<div class="modal fade" id="modalTransferir" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Modal Transferir a INPRO -->
+<div class="modal fade" id="modalTransferirInpro" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('clientes/transferir-inpro') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="cliente_id" value="<?= $cid ?>">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-arrow-left-right text-warning"></i> Transferir a INPRO</h5>
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right text-warning"></i> Transferir gestión a INPRO</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small">La empresa quedará en modo solo lectura sobre este cliente.</p>
+                <p class="text-muted small mb-3">
+                    La empresa colaboradora <strong><?= e($cliente['empresa_colaboradora_nombre'] ?? '') ?></strong>
+                    pasará a <strong>solo lectura</strong>. INPRO asumirá la gestión activa.
+                </p>
                 <div class="mb-2">
                     <label class="form-label">Responsable INPRO</label>
                     <select name="responsable_inpro_id" class="form-select" required>
                         <option value="">Selecciona...</option>
                         <?php foreach ($usuariosInpro as $u): ?>
-                            <option value="<?= (int) $u['id'] ?>"><?= e($u['nombre']) ?></option>
+                            <option value="<?= (int) $u['id'] ?>" <?= (int) ($cliente['responsable_inpro_id'] ?? 0) === (int) $u['id'] ? 'selected' : '' ?>>
+                                <?= e($u['nombre']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="mb-2">
                     <label class="form-label">Motivo</label>
-                    <input type="text" name="motivo" class="form-control" value="Empresa deja gestión a INPRO">
+                    <input type="text" name="motivo" class="form-control" value="Empresa cede gestión a INPRO">
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-warning"><i class="bi bi-arrow-left-right"></i> Transferir</button>
+                <button class="btn btn-warning"><i class="bi bi-arrow-left-right"></i> Transferir a INPRO</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Transferir a empresa colaboradora -->
+<div class="modal fade" id="modalTransferirEmpresa" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+        <form method="post" action="<?= url('clientes/transferir-empresa') ?>" class="modal-content">
+            <?= csrf_field() ?>
+            <input type="hidden" name="cliente_id" value="<?= $cid ?>">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right text-warning"></i> Transferir gestión a empresa colaboradora</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    INPRO cede la gestión activa a
+                    <strong><?= e($cliente['empresa_colaboradora_nombre'] ?? 'la empresa colaboradora') ?></strong>.
+                    La empresa recuperará permiso de <strong>edición</strong>.
+                </p>
+                <div class="mb-2">
+                    <label class="form-label">Responsable empresa colaboradora</label>
+                    <select name="responsable_empresa_id" class="form-select" required>
+                        <option value="">Selecciona...</option>
+                        <?php foreach ($usuariosEmpresa as $u): ?>
+                            <option value="<?= (int) $u['id'] ?>" <?= (int) ($cliente['responsable_empresa_id'] ?? 0) === (int) $u['id'] ? 'selected' : '' ?>>
+                                <?= e($u['nombre']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Motivo</label>
+                    <input type="text" name="motivo" class="form-control" value="INPRO cede gestión a empresa colaboradora">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-warning"><i class="bi bi-arrow-left-right"></i> Transferir a empresa</button>
             </div>
         </form>
     </div>
@@ -419,7 +797,7 @@
 
 <!-- Modal Visita -->
 <div class="modal fade" id="modalVisita" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('visitas/guardar') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="cliente_id" value="<?= $cid ?>">
@@ -477,7 +855,7 @@
 
 <!-- Modal Marcar Realizada -->
 <div class="modal fade" id="modalRealizar" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('visitas/realizar') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="visita_id" id="realizarVisitaId">
@@ -509,7 +887,7 @@
 
 <!-- Modal Reagendar -->
 <div class="modal fade" id="modalReagendar" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('visitas/reagendar') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="visita_id" id="reagendarVisitaId">
@@ -532,7 +910,7 @@
 
 <!-- Modal Recordatorio -->
 <div class="modal fade" id="modalRecordatorio" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-fullscreen-sm-down">
         <form method="post" action="<?= url('visitas/recordatorio') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="visita_id" id="recordatorioVisitaId">
@@ -607,8 +985,8 @@
 
 <!-- Modal Venta -->
 <div class="modal fade" id="modalVenta" tabindex="-1">
-    <div class="modal-dialog">
-        <form method="post" action="<?= url('ventas/guardar') ?>" class="modal-content">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+        <form method="post" action="<?= url('ventas/guardar') ?>" class="modal-content" id="formVenta">
             <?= csrf_field() ?>
             <input type="hidden" name="cliente_id" value="<?= $cid ?>">
             <div class="modal-header">
@@ -616,25 +994,65 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <select name="producto_id" class="form-select mb-2" required>
-                    <?php foreach ($productos as $p): ?>
-                        <option value="<?= (int) $p['id'] ?>"><?= e($p['nombre']) ?> (<?= number_format((float) $p['precio_anual_eur'], 0, ',', '.') ?> €/año)</option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="number" name="descuento_pct" class="form-control" placeholder="Descuento %" min="0" max="100" step="0.01" value="0">
-                <small class="text-muted mt-1 d-block">Quedará pendiente de validación INPRO.</small>
+                <?php if (!empty($tarifaCliente)): ?>
+                    <p class="small text-muted mb-2">
+                        Tarifa aplicada: <strong><?= e($tarifaCliente['nombre']) ?></strong>
+                    </p>
+                <?php else: ?>
+                    <div class="alert alert-warning py-2 small">No hay tarifa configurada para este cliente.</div>
+                <?php endif; ?>
+                <label class="form-label">Nº de obras *</label>
+                <input type="number" name="num_obras" id="ventaNumObras" class="form-control mb-2"
+                       min="1" required placeholder="Ej. 8" <?= empty($tarifaCliente) ? 'disabled' : '' ?>>
+                <div id="ventaPreview" class="alert alert-light border small d-none mb-2"></div>
+                <label class="form-label">Descuento adicional % (opcional)</label>
+                <input type="number" name="descuento_pct" class="form-control" min="0" max="100" step="0.01" value="0"
+                       <?= empty($tarifaCliente) ? 'disabled' : '' ?>>
+                <small class="text-muted mt-2 d-block">El precio se calcula por tramos de volumen. Quedará pendiente de validación INPRO.</small>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-success"><i class="bi bi-cart-plus-fill"></i> Registrar</button>
+                <button class="btn btn-success" <?= empty($tarifaCliente) ? 'disabled' : '' ?>>
+                    <i class="bi bi-cart-plus-fill"></i> Registrar
+                </button>
             </div>
         </form>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var input = document.getElementById('ventaNumObras');
+    var preview = document.getElementById('ventaPreview');
+    if (!input || !preview) return;
+
+    function actualizarPreview() {
+        var n = parseInt(input.value, 10);
+        if (!n || n < 1) {
+            preview.classList.add('d-none');
+            return;
+        }
+        fetch('<?= url('api/tarifas/preview') ?>?cliente_id=<?= $cid ?>&num_obras=' + n)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.ok) {
+                    preview.className = 'alert alert-warning border small mb-2';
+                    preview.textContent = data.error || 'Sin tramo';
+                    preview.classList.remove('d-none');
+                    return;
+                }
+                preview.className = 'alert alert-success border small mb-2';
+                preview.innerHTML = '<strong>' + data.etiqueta + '</strong><br>Anual: '
+                    + Number(data.importe_anual_eur).toLocaleString('es-ES', {minimumFractionDigits: 2}) + ' €';
+                preview.classList.remove('d-none');
+            });
+    }
+    input.addEventListener('input', actualizarPreview);
+});
+</script>
 
 <!-- Modal Tarea -->
 <div class="modal fade" id="modalTarea" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('tareas/guardar') ?>" class="modal-content">
             <?= csrf_field() ?>
             <input type="hidden" name="cliente_id" value="<?= $cid ?>">
@@ -675,7 +1093,7 @@
 
 <!-- Modal Editar Tarea -->
 <div class="modal fade" id="modalEditarTarea" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-fullscreen-sm-down">
         <form method="post" action="<?= url('tareas/actualizar') ?>" class="modal-content" id="formEditarTarea">
             <?= csrf_field() ?>
             <input type="hidden" name="tarea_id" id="editTareaId">
@@ -783,12 +1201,46 @@ document.addEventListener('DOMContentLoaded', function () {
     modos.forEach(function (r) { r.addEventListener('change', toggleResultado); });
     toggleResultado();
 
-    // Activar pestaña desde hash (#tabAgenda, #tabTareas, etc.)
+    // Activar pestaña desde hash
     var hash = location.hash;
+    var mobile = window.matchMedia('(max-width: 991.98px)').matches;
+    if (hash && mobile) {
+        var map = {
+            '#tabAgenda': '#tabActividadMob',
+            '#tabHistorial': '#tabActividadMob',
+            '#tabContactos': '#tabDatosMob',
+            '#tabVentas': '#tabDatosMob'
+        };
+        if (map[hash]) hash = map[hash];
+    }
     if (hash) {
         var tabBtn = document.querySelector('[data-bs-target="' + hash + '"]');
         if (tabBtn) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
     }
+
+    // Cambiar etapa pipeline (ficha cliente)
+    document.querySelectorAll('.cliente-etapa-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var estadoId = this.dataset.estadoId;
+            var nombre   = this.dataset.estadoNombre;
+            fetch('<?= url('pipeline/mover') ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: '_csrf=' + encodeURIComponent(getCsrfToken())
+                    + '&cliente_id=<?= $cid ?>'
+                    + '&estado_id=' + estadoId
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.ok) {
+                    showToast('Etapa actualizada: ' + nombre, 'success');
+                    location.reload();
+                } else {
+                    showToast(data.error || 'No se pudo cambiar la etapa', 'error');
+                }
+            });
+        });
+    });
 });
 
 // Abrir modal editar tarea con datos pre-cargados
@@ -802,21 +1254,4 @@ function abrirEditarTarea(t) {
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarTarea')).show();
 }
 
-// Toggle estrella
-function toggleStar(btn) {
-    var tareaId = btn.dataset.tareaId;
-    var csrfToken = getCsrfToken();
-    fetch('<?= url('tareas/destacar') ?>', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '_csrf=' + encodeURIComponent(csrfToken) + '&tarea_id=' + tareaId
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.ok) {
-            btn.classList.toggle('active', data.destacada);
-            btn.title = data.destacada ? 'Quitar destacado' : 'Destacar';
-        }
-    });
-}
 </script>

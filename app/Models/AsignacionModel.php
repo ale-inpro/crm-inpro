@@ -41,4 +41,29 @@ class AsignacionModel extends Model
             'realizado_por_id' => $realizadoPorId,
         ]);
     }
+
+    public function transferirAEmpresa(int $clienteId, int $empresaUserId, int $realizadoPorId, string $motivo): void
+    {
+        $cliente = (new ClienteModel())->findById($clienteId);
+        if (!$cliente) {
+            return;
+        }
+
+        $this->db->prepare('
+            UPDATE clientes
+            SET responsable_empresa_id = ?, modo_acceso_empresa = \'edicion\', updated_at = NOW()
+            WHERE id = ?
+        ')->execute([$empresaUserId, $clienteId]);
+
+        $this->registrar([
+            'cliente_id' => $clienteId,
+            'tipo' => 'transferencia_empresa',
+            'responsable_inpro_id' => $cliente['responsable_inpro_id'],
+            'responsable_empresa_id' => $empresaUserId,
+            'empresa_colaboradora_id' => $cliente['empresa_colaboradora_id'],
+            'modo_acceso_empresa' => 'edicion',
+            'motivo' => $motivo,
+            'realizado_por_id' => $realizadoPorId,
+        ]);
+    }
 }

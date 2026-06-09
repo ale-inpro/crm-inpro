@@ -27,6 +27,56 @@ class ClienteService
         return $cliente['modo_acceso_empresa'] === 'edicion';
     }
 
+    public function gestorActivo(array $cliente): string
+    {
+        return cliente_gestor_activo($cliente);
+    }
+
+    public function canTransferirAInpro(array $user, array $cliente): bool
+    {
+        if (empty($cliente['empresa_colaboradora_id'])) {
+            return false;
+        }
+        if ($this->gestorActivo($cliente) !== 'empresa') {
+            return false;
+        }
+        if ($user['rol'] !== 'empresa') {
+            return false;
+        }
+        return $this->canEdit($user, $cliente);
+    }
+
+    public function canTransferirAEmpresa(array $user, array $cliente): bool
+    {
+        if (empty($cliente['empresa_colaboradora_id'])) {
+            return false;
+        }
+        if ($this->gestorActivo($cliente) !== 'inpro') {
+            return false;
+        }
+        if ($user['rol'] !== 'inpro') {
+            return false;
+        }
+        return $this->canEdit($user, $cliente);
+    }
+
+    /**
+     * Editar/eliminar ficha del cliente: responsable INPRO o responsable empresa asignado, con permiso de edición.
+     */
+    public function canManageCliente(array $user, array $cliente): bool
+    {
+        if (!$this->canEdit($user, $cliente)) {
+            return false;
+        }
+        if ($user['rol'] === 'inpro') {
+            return (int) ($cliente['responsable_inpro_id'] ?? 0) === (int) $user['id'];
+        }
+        if ($user['rol'] === 'empresa') {
+            return (int) ($cliente['responsable_empresa_id'] ?? 0) === (int) $user['id'];
+        }
+        return false;
+    }
+
     public function moverEstado(array $user, int $clienteId, int $nuevoEstadoId): void
     {
         $cliente = (new ClienteModel())->findById($clienteId);

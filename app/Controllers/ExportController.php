@@ -20,7 +20,7 @@ class ExportController extends Controller
         fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
         fputcsv($out, [
             'ID', 'Razón social', 'CIF', 'Ciudad', 'Estado', '1ª visita',
-            'Empresa colaboradora', 'Modo acceso empresa', 'Email', 'Teléfono',
+            'Empresa colaboradora', 'Gestionado por', 'Email', 'Teléfono',
         ], ';');
 
         foreach ($clientes as $c) {
@@ -32,7 +32,7 @@ class ExportController extends Controller
                 $c['estado_nombre'],
                 $c['primera_visita_realizada'] ? 'Sí' : 'No',
                 $c['empresa_colaboradora_nombre'] ?? '',
-                $c['modo_acceso_empresa'],
+                cliente_gestor_etiqueta($c),
                 $c['email_principal'] ?? '',
                 $c['telefono_principal'] ?? '',
             ], ';');

@@ -53,6 +53,11 @@ class ClienteModel extends Model
             $sql .= ' AND c.estado_pipeline_id = ?';
             $params[] = $filtros['estado_pipeline_id'];
         }
+        if (!empty($filtros['busqueda'])) {
+            $sql .= ' AND (c.razon_social LIKE ? OR c.nombre_comercial LIKE ? OR c.ciudad LIKE ? OR c.cif LIKE ?)';
+            $q = '%' . $filtros['busqueda'] . '%';
+            array_push($params, $q, $q, $q, $q);
+        }
 
         $sql .= ' ORDER BY c.updated_at DESC';
         $stmt = $this->db->prepare($sql);
@@ -157,5 +162,70 @@ class ClienteModel extends Model
 
         usort($items, fn($a, $b) => strcmp($b['fecha'], $a['fecha']));
         return $items;
+    }
+
+    public function update(int $id, array $data): void
+    {
+        $this->db->prepare('
+            UPDATE clientes SET
+                razon_social = ?,
+                nombre_comercial = ?,
+                cif = ?,
+                cif_normalizado = ?,
+                ciudad = ?,
+                provincia = ?,
+                telefono_principal = ?,
+                email_principal = ?,
+                estado_pipeline_id = ?,
+                updated_at = NOW()
+            WHERE id = ? AND deleted_at IS NULL
+        ')->execute([
+            $data['razon_social'],
+            $data['nombre_comercial'],
+            $data['cif'],
+            $data['cif_normalizado'],
+            $data['ciudad'],
+            $data['provincia'],
+            $data['telefono_principal'],
+            $data['email_principal'],
+            $data['estado_pipeline_id'],
+            $id,
+        ]);
+    }
+
+    public function softDelete(int $id): void
+    {
+        $this->db->prepare('UPDATE clientes SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?')
+            ->execute([$id]);
+    }
+
+    public function assignColaboradora(int $id, int $empresaColabId, int $responsableEmpresaId): void
+    {
+        $this->db->prepare('
+            UPDATE clientes SET
+                empresa_colaboradora_id = ?,
+                responsable_empresa_id = ?,
+                modo_acceso_empresa = \'edicion\',
+                updated_at = NOW()
+            WHERE id = ? AND deleted_at IS NULL
+        ')->execute([$empresaColabId, $responsableEmpresaId, $id]);
+    }
+
+    /** @return array{visitas: int, ventas: int, tareas: int, contactos: int} */
+    public function countActividad(int $clienteId): array
+    {
+        $counts = ['visitas' => 0, 'ventas' => 0, 'tareas' => 0, 'contactos' => 0];
+        $tables = [
+            'visitas' => 'visitas',
+            'ventas' => 'ventas',
+            'tareas' => 'tareas',
+            'contactos' => 'contactos',
+        ];
+        foreach ($tables as $key => $table) {
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM {$table} WHERE cliente_id = ?");
+            $stmt->execute([$clienteId]);
+            $counts[$key] = (int) $stmt->fetchColumn();
+        }
+        return $counts;
     }
 }

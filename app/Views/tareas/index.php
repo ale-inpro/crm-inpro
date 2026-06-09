@@ -17,12 +17,23 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
 ?>
 
 <!-- ── TOOLBAR UNIFICADA ── -->
-<div class="page-toolbar animate-fade-up">
-    <!-- Izquierda: título -->
-    <h1 class="h4 mb-0 me-2">Tareas</h1>
+<div class="page-toolbar animate-fade-up flex-column flex-lg-row align-items-stretch align-items-lg-center">
+    <div class="d-flex align-items-center justify-content-between w-100 w-lg-auto">
+        <h1 class="h4 mb-0 me-2 mobile-hide-heading">Tareas</h1>
+        <div class="d-lg-none">
+            <div class="btn-group btn-group-sm">
+                <a href="<?= vistaUrl('lista', $filtroEstado, $filtroCliente) ?>"
+                   class="btn <?= $vista === 'lista' ? 'btn-inpro' : 'btn-outline-secondary' ?>"
+                   title="Lista"><i class="bi bi-list-ul"></i></a>
+                <a href="<?= vistaUrl('calendario', null, $filtroCliente) ?>"
+                   class="btn <?= $vista === 'calendario' ? 'btn-inpro' : 'btn-outline-secondary' ?>"
+                   title="Calendario"><i class="bi bi-calendar3"></i></a>
+            </div>
+        </div>
+    </div>
 
     <!-- Centro: filtros -->
-    <div class="page-toolbar-center d-flex align-items-center gap-2 flex-wrap justify-content-center">
+    <div class="page-toolbar-center d-flex align-items-center gap-2 flex-wrap justify-content-center w-100">
         <?php if (!empty($clientes)): ?>
         <select class="form-select form-select-sm" style="max-width:220px" id="filtroClienteTareas">
             <option value="">Todos los clientes</option>
@@ -34,7 +45,19 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
         </select>
         <?php endif; ?>
         <?php if ($vista === 'lista'): ?>
-        <div class="btn-group btn-group-sm">
+        <div class="d-lg-none filter-chips-scroll w-100">
+            <div class="filter-chips">
+                <a href="<?= vistaUrl($vista, null, $filtroCliente) ?>"
+                   class="filter-chip <?= !$filtroEstado ? 'active' : '' ?>">Todas</a>
+                <a href="<?= vistaUrl($vista, 'pendiente', $filtroCliente) ?>"
+                   class="filter-chip <?= $filtroEstado === 'pendiente' ? 'active' : '' ?>">Pendientes</a>
+                <a href="<?= vistaUrl($vista, 'completada', $filtroCliente) ?>"
+                   class="filter-chip <?= $filtroEstado === 'completada' ? 'active' : '' ?>">Completadas</a>
+                <a href="<?= vistaUrl($vista, 'cancelada', $filtroCliente) ?>"
+                   class="filter-chip <?= $filtroEstado === 'cancelada' ? 'active' : '' ?>">Canceladas</a>
+            </div>
+        </div>
+        <div class="btn-group btn-group-sm d-none d-lg-flex">
             <a href="<?= vistaUrl($vista, null, $filtroCliente) ?>"
                class="btn <?= !$filtroEstado ? 'btn-inpro' : 'btn-outline-secondary' ?>">Todas</a>
             <a href="<?= vistaUrl($vista, 'pendiente', $filtroCliente) ?>"
@@ -47,8 +70,8 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
         <?php endif; ?>
     </div>
 
-    <!-- Derecha: selector de vista -->
-    <div class="page-toolbar-right">
+    <!-- Derecha: selector de vista (desktop) -->
+    <div class="page-toolbar-right d-none d-lg-block">
         <div class="btn-group btn-group-sm">
             <a href="<?= vistaUrl('lista', $filtroEstado, $filtroCliente) ?>"
                class="btn <?= $vista === 'lista' ? 'btn-inpro' : 'btn-outline-secondary' ?>"
@@ -70,6 +93,12 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
 </div>
 
 <?php if ($vista === 'lista'): ?>
+<?php
+$listaRedirect = 'tareas?vista=lista'
+    . ($filtroEstado ? '&estado=' . urlencode($filtroEstado) : '')
+    . ($filtroCliente ? '&cliente_id=' . $filtroCliente : '');
+$tareasRedirect = $listaRedirect;
+?>
 <!-- ── VISTA LISTA ── -->
 <div class="panel animate-fade-up">
     <div class="panel-header">
@@ -92,23 +121,21 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
             <?php foreach ($tareas as $t):
                 $vencida = $t['fecha_vencimiento'] < $hoy && $t['estado'] === 'pendiente';
             ?>
-            <div class="task-item px-3
+            <div class="task-item px-3 task-item-tappable
                 <?= $t['estado'] === 'completada' ? 'done' : '' ?>
                 <?= $t['estado'] === 'cancelada'  ? 'opacity-50' : '' ?>
                 <?= $t['prioridad'] === 'alta'  ? 'task-priority-alta'  : '' ?>
-                <?= $t['prioridad'] === 'media' ? 'task-priority-media' : '' ?>">
+                <?= $t['prioridad'] === 'media' ? 'task-priority-media' : '' ?>"
+                onclick="abrirDetalleTarea(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
 
                 <!-- Estrella -->
                 <button class="btn-star <?= $t['destacada'] ? 'active' : '' ?>"
                         data-tarea-id="<?= (int) $t['id'] ?>"
-                        onclick="toggleStar(this)"
+                        onclick="event.stopPropagation(); toggleStar(this)"
                         title="<?= $t['destacada'] ? 'Quitar destacado' : 'Destacar' ?>">★</button>
 
                 <div class="flex-grow-1 min-w-0">
-                    <a href="<?= url('clientes/ver?id=' . (int) $t['cliente_id']) ?>"
-                       class="fw-semibold text-decoration-none text-dark text-truncate d-block">
-                        <?= e($t['titulo']) ?>
-                    </a>
+                    <div class="fw-semibold text-truncate"><?= e($t['titulo']) ?></div>
                     <?php if (!empty($t['descripcion'])): ?>
                         <div class="small text-muted text-truncate"><?= e($t['descripcion']) ?></div>
                     <?php endif; ?>
@@ -129,32 +156,52 @@ function vistaUrl(string $v, ?string $estado = null, ?int $clienteId = null): st
                 </div>
 
                 <!-- Acciones -->
-                <?php if ($t['estado'] === 'pendiente'): ?>
-                <div class="d-flex gap-1 flex-shrink-0">
+                <div class="d-flex gap-1 flex-shrink-0 align-items-center" onclick="event.stopPropagation()">
+                    <button type="button" class="btn btn-xs btn-ghost text-primary" title="Editar"
+                            onclick="abrirEditarTareaDirect(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-xs btn-outline-secondary" data-bs-toggle="dropdown" title="Cambiar estado">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">Cambiar a</h6></li>
+                            <?php foreach (['pendiente','completada','cancelada'] as $est): ?>
+                                <?php if ($est === $t['estado']) continue; ?>
+                                <li>
+                                    <button type="button" class="dropdown-item"
+                                            onclick="tareaMoverEstado(<?= (int) $t['id'] ?>, '<?= $est ?>')">
+                                        <?= ucfirst($est) ?>
+                                    </button>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php if ($t['estado'] === 'pendiente'): ?>
                     <form method="post" action="<?= url('tareas/completar') ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="tarea_id" value="<?= (int) $t['id'] ?>">
-                        <input type="hidden" name="redirect" value="tareas?vista=lista<?= $filtroEstado ? '&estado=' . urlencode($filtroEstado) : '' ?>">
+                        <input type="hidden" name="redirect" value="<?= e($listaRedirect) ?>">
                         <button class="btn btn-xs btn-ghost text-success" title="Completar"><i class="bi bi-check-lg"></i></button>
                     </form>
-                    <form method="post" action="<?= url('tareas/cancelar') ?>">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="tarea_id" value="<?= (int) $t['id'] ?>">
-                        <input type="hidden" name="redirect" value="tareas?vista=lista<?= $filtroEstado ? '&estado=' . urlencode($filtroEstado) : '' ?>">
-                        <button class="btn btn-xs btn-ghost text-secondary" title="Cancelar"><i class="bi bi-x-lg"></i></button>
-                    </form>
+                    <?php endif; ?>
                 </div>
-                <?php elseif ($t['estado'] === 'completada'): ?>
-                    <span class="badge bg-success rounded-pill ms-2">Hecha</span>
-                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
 </div>
 
+<?php require APP_PATH . '/Views/tareas/_tarea-modals.php'; ?>
+
 <?php elseif ($vista === 'pipeline'): ?>
-<!-- ── VISTA KANBAN ── -->
+<script>
+if (window.matchMedia('(max-width: 991.98px)').matches) {
+    location.replace('<?= vistaUrl('lista', $filtroEstado, $filtroCliente) ?>');
+}
+</script>
+<!-- ── VISTA KANBAN (solo desktop) ── -->
 <?php require APP_PATH . '/Views/tareas/pipeline.php'; ?>
 
 <?php elseif ($vista === 'calendario'): ?>
@@ -180,24 +227,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<?php if ($vista !== 'pipeline'): ?>
-<!-- toggleStar para lista/calendario -->
-<script>
-window.toggleStar = function (btn) {
-    var tareaId = btn.dataset.tareaId;
-    var csrfToken = getCsrfToken();
-    fetch('<?= url('tareas/destacar') ?>', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '_csrf=' + encodeURIComponent(csrfToken) + '&tarea_id=' + tareaId
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-        if (data.ok) {
-            btn.classList.toggle('active', data.destacada);
-            btn.title = data.destacada ? 'Quitar destacado' : 'Destacar';
-        }
-    });
-};
-</script>
-<?php endif; ?>

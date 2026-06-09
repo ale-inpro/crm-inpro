@@ -63,4 +63,36 @@ class ApiController extends Controller
 
         $this->json($fc);
     }
+
+    public function tarifaPreview(): void
+    {
+        $this->requireAuth();
+        $clienteId = (int) ($_GET['cliente_id'] ?? 0);
+        $numObras = (int) ($_GET['num_obras'] ?? 0);
+
+        if ($clienteId <= 0 || $numObras <= 0) {
+            $this->json(['ok' => false, 'error' => 'Datos incompletos'], 400);
+        }
+
+        $svc = new \App\Services\TarifaService();
+        $tarifaId = $svc->tarifaIdParaCliente($clienteId);
+        if (!$tarifaId) {
+            $this->json(['ok' => false, 'error' => 'No hay tarifa configurada'], 404);
+        }
+
+        $tramo = $svc->resolverTramo($tarifaId, $numObras);
+        if (!$tramo) {
+            $this->json(['ok' => false, 'error' => 'No hay tramo para ese número de obras'], 404);
+        }
+
+        $importes = $svc->calcularImportes($tramo, 0);
+        $this->json([
+            'ok' => true,
+            'tarifa_tramo_id' => (int) $tramo['id'],
+            'etiqueta' => $svc->etiquetaTramo($tramo, $numObras),
+            'precio_mes_eur' => $importes['precio_mes_eur'],
+            'importe_anual_eur' => $importes['importe_anual_eur'],
+            'stripe_price_id' => $importes['stripe_price_id'],
+        ]);
+    }
 }

@@ -78,3 +78,39 @@ function csrf_verify(): void
         die('Token CSRF inválido.');
     }
 }
+
+/**
+ * Quién gestiona el cliente: 'inpro' o 'empresa'.
+ * Se deduce de modo_acceso_empresa (sin campo extra en BD).
+ */
+function cliente_gestor_activo(array $cliente): string
+{
+    if (empty($cliente['empresa_colaboradora_id'])) {
+        return 'inpro';
+    }
+    return ($cliente['modo_acceso_empresa'] ?? 'edicion') === 'edicion' ? 'empresa' : 'inpro';
+}
+
+function cliente_gestor_etiqueta(array $cliente): string
+{
+    return cliente_gestor_activo($cliente) === 'empresa'
+        ? ($cliente['empresa_colaboradora_nombre'] ?? 'Empresa colaboradora')
+        : 'INPRO';
+}
+
+function cliente_acceso_colaborador_etiqueta(array $cliente): string
+{
+    if (empty($cliente['empresa_colaboradora_id'])) {
+        return '—';
+    }
+    return ($cliente['modo_acceso_empresa'] ?? 'edicion') === 'edicion' ? 'Edición' : 'Solo lectura';
+}
+
+function cliente_can_manage(array $cliente): bool
+{
+    $user = current_user();
+    if (!$user) {
+        return false;
+    }
+    return (new \App\Services\ClienteService())->canManageCliente($user, $cliente);
+}

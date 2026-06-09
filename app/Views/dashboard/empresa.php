@@ -1,5 +1,7 @@
+<?php require APP_PATH . '/Views/partials/dashboard-hoy.php'; ?>
+
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-6 col-md-4">
         <a href="<?= url('clientes') ?>" class="stat-card">
             <div class="d-flex justify-content-between">
                 <div>
@@ -10,7 +12,7 @@
             </div>
         </a>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-md-4">
         <a href="<?= url('clientes?filtro=sin_primera_visita') ?>" class="stat-card">
             <div class="d-flex justify-content-between">
                 <div>
@@ -21,7 +23,7 @@
             </div>
         </a>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-md-4">
         <a href="<?= url('comisiones') ?>" class="stat-card">
             <div class="d-flex justify-content-between">
                 <div>
@@ -34,8 +36,8 @@
     </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-lg-5">
+<div class="row g-3 d-none d-lg-flex">
+    <div class="col-12 col-lg-5">
         <div class="panel">
             <div class="panel-header">
                 Tareas vencidas
@@ -46,7 +48,7 @@
             </div>
         </div>
     </div>
-    <div class="col-lg-7">
+    <div class="col-12 col-lg-7">
         <div class="panel">
             <div class="panel-header">
                 Próximas tareas
