@@ -1,12 +1,16 @@
 <?php
 $cid = (int) $cliente['id'];
 $estadoActualId = (int) ($cliente['estado_pipeline_id'] ?? 0);
-$totalActividad = !empty($actividadCliente) ? array_sum($actividadCliente) : 0;
+$totalActividad = !empty($actividadBloqueante) ? array_sum($actividadBloqueante) : 0;
 $msgEliminar = $totalActividad > 0
-    ? 'Este cliente tiene actividad registrada y no puede eliminarse.'
-    : '¿Eliminar el cliente «' . ($cliente['razon_social'] ?? '') . '»? Esta acción no se puede deshacer.';
+    ? 'Este cliente tiene visitas, ventas o tareas registradas y no puede eliminarse.'
+    : '¿Eliminar el cliente «' . ($cliente['razon_social'] ?? '') . '»? No tiene visitas, ventas ni tareas registradas.';
 $pendTareas = count(array_filter($tareas, fn($t) => $t['estado'] === 'pendiente'));
 $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
+
+$contactoPrincipal = contacto_principal_desde_lista($contactos ?? []);
+$telPrincipal = $contactoPrincipal ? ($contactoPrincipal['telefono'] ?? null) : null;
+$emailPrincipal = $contactoPrincipal ? ($contactoPrincipal['email'] ?? null) : null;
 ?>
 
 <!-- ── CABECERA COMPACTA ── -->
@@ -49,8 +53,8 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
                 <button type="button"
                         class="badge rounded-pill px-3 py-2 border-0 cliente-estado-badge"
                         style="background:<?= e($cliente['color_hex'] ?? '#6c757d') ?>;font-size:.78rem"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#cambiarEtapaOffcanvas">
+                        data-bs-toggle="modal"
+                        data-bs-target="#cambiarEtapaModal">
                     <?= e($cliente['estado_nombre'] ?? '—') ?> <i class="bi bi-chevron-down ms-1"></i>
                 </button>
                 <?php else: ?>
@@ -163,15 +167,15 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
             <span class="meta-item"><i class="bi bi-geo-alt"></i> <?= e($cliente['ciudad']) ?></span>
             <span class="meta-sep"></span>
         <?php endif; ?>
-        <?php if ($cliente['telefono_principal'] ?? null): ?>
-            <a href="tel:<?= e(preg_replace('/\s+/', '', $cliente['telefono_principal'])) ?>" class="meta-item meta-item-link">
-                <i class="bi bi-telephone"></i> <?= e($cliente['telefono_principal']) ?>
+        <?php if ($telPrincipal): ?>
+            <a href="tel:<?= e(preg_replace('/\s+/', '', $telPrincipal)) ?>" class="meta-item meta-item-link">
+                <i class="bi bi-telephone"></i> <?= e($telPrincipal) ?>
             </a>
             <span class="meta-sep"></span>
         <?php endif; ?>
-        <?php if ($cliente['email_principal'] ?? null): ?>
-            <a href="mailto:<?= e($cliente['email_principal']) ?>" class="meta-item meta-item-link">
-                <i class="bi bi-envelope"></i> <?= e($cliente['email_principal']) ?>
+        <?php if ($emailPrincipal): ?>
+            <a href="mailto:<?= e($emailPrincipal) ?>" class="meta-item meta-item-link">
+                <i class="bi bi-envelope"></i> <?= e($emailPrincipal) ?>
             </a>
             <span class="meta-sep"></span>
         <?php endif; ?>
@@ -184,15 +188,15 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
             1ª visita: <?= $cliente['primera_visita_realizada'] ? 'Realizada' : 'Pendiente' ?>
         </span>
     </div>
-    <?php if (($cliente['telefono_principal'] ?? null) || ($cliente['email_principal'] ?? null)): ?>
+    <?php if ($telPrincipal || $emailPrincipal): ?>
     <div class="d-lg-none client-quick-actions mt-2">
-        <?php if ($cliente['telefono_principal'] ?? null): ?>
-        <a href="tel:<?= e(preg_replace('/\s+/', '', $cliente['telefono_principal'])) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
+        <?php if ($telPrincipal): ?>
+        <a href="tel:<?= e(preg_replace('/\s+/', '', $telPrincipal)) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
             <i class="bi bi-telephone-fill"></i> Llamar
         </a>
         <?php endif; ?>
-        <?php if ($cliente['email_principal'] ?? null): ?>
-        <a href="mailto:<?= e($cliente['email_principal']) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
+        <?php if ($emailPrincipal): ?>
+        <a href="mailto:<?= e($emailPrincipal) ?>" class="btn btn-sm btn-outline-secondary flex-grow-1">
             <i class="bi bi-envelope-fill"></i> Email
         </a>
         <?php endif; ?>
@@ -403,17 +407,17 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
     </div>
 
     <!-- TAB AGENDA (desktop) -->
-    <div class="tab-pane fade show active d-none d-lg-block" id="tabAgenda">
+    <div class="tab-pane fade show active client-tab-desktop" id="tabAgenda">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-calendar3"></i> Agenda y programación</div>
             <div class="panel-body">
-                <?php require APP_PATH . '/Views/partials/calendario.php'; ?>
+                <?php $calAutoInit = false; require APP_PATH . '/Views/partials/calendario.php'; ?>
             </div>
         </div>
     </div>
 
     <!-- TAB HISTORIAL (desktop) -->
-    <div class="tab-pane fade d-none d-lg-block" id="tabHistorial">
+    <div class="tab-pane fade client-tab-desktop" id="tabHistorial">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-clock-history"></i> Historial de actividad</div>
             <div class="panel-body">
@@ -517,10 +521,8 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
         </div>
     </div>
 
-<?php require APP_PATH . '/Views/tareas/_tarea-modals.php'; ?>
-
     <!-- TAB CONTACTOS (desktop) -->
-    <div class="tab-pane fade d-none d-lg-block" id="tabContactos">
+    <div class="tab-pane fade client-tab-desktop" id="tabContactos">
         <div class="panel">
         <div class="panel-header">
                 <span><i class="bi bi-people"></i> Contactos</span>
@@ -558,7 +560,7 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
     </div>
 
     <!-- TAB VENTAS (desktop) -->
-    <div class="tab-pane fade d-none d-lg-block" id="tabVentas">
+    <div class="tab-pane fade client-tab-desktop" id="tabVentas">
         <div class="panel">
             <div class="panel-header"><i class="bi bi-cart-check"></i> Ventas registradas</div>
             <?php if (empty($ventas)): ?>
@@ -650,9 +652,11 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
     </div>
 </div>
 
+<?php require APP_PATH . '/Views/tareas/_tarea-modals.php'; ?>
+
 <?php if ($canEdit): ?>
-<!-- Offcanvas: cambiar etapa pipeline -->
-<div class="offcanvas offcanvas-bottom app-filter-offcanvas" tabindex="-1" id="cambiarEtapaOffcanvas" aria-labelledby="cambiarEtapaOffcanvasLabel">
+<!-- Offcanvas móvil: cambiar etapa pipeline -->
+<div class="offcanvas offcanvas-bottom app-filter-offcanvas d-lg-none" tabindex="-1" id="cambiarEtapaOffcanvas" aria-labelledby="cambiarEtapaOffcanvasLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="cambiarEtapaOffcanvasLabel">Cambiar etapa comercial</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
@@ -670,6 +674,33 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
                     <?= e($ep['nombre']) ?>
                 </button>
             <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Modal desktop: cambiar etapa pipeline -->
+<div class="modal fade" id="cambiarEtapaModal" tabindex="-1" aria-labelledby="cambiarEtapaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cambiarEtapaModalLabel">Cambiar etapa comercial</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-0">
+                <p class="small text-muted mb-3">Etapa actual: <strong><?= e($cliente['estado_nombre'] ?? '—') ?></strong></p>
+                <div class="list-group list-group-flush">
+                    <?php foreach ($estadosPipeline ?? [] as $ep): ?>
+                        <?php if ((int) $ep['id'] === $estadoActualId) continue; ?>
+                        <button type="button"
+                                class="list-group-item list-group-item-action d-flex align-items-center gap-2 cliente-etapa-btn"
+                                data-estado-id="<?= (int) $ep['id'] ?>"
+                                data-estado-nombre="<?= e($ep['nombre']) ?>">
+                            <span class="rounded-circle d-inline-block flex-shrink-0" style="width:10px;height:10px;background:<?= e($ep['color_hex'] ?? '#6c757d') ?>"></span>
+                            <?= e($ep['nombre']) ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -707,6 +738,7 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
                     <input class="form-check-input" type="checkbox" name="es_principal" id="contactoPrincipal" value="1">
                     <label class="form-check-label" for="contactoPrincipal">Contacto principal</label>
                 </div>
+                <p class="small text-muted mb-0 mt-2">Si marcas contacto principal, indica al menos email o teléfono.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -929,25 +961,21 @@ $tareasRedirect = 'clientes/ver?id=' . $cid . '#tabTareas';
                         <label class="form-label">Destinatario *</label>
                         <select name="destinatario" id="recordatorioEmail" class="form-select" required>
                             <?php
-                            $emailsRecordatorio = [];
-                            if (!empty($cliente['email_principal'])) {
-                                $emailsRecordatorio['principal'] = $cliente['email_principal'];
-                            }
-                            foreach ($contactos as $ct) {
-                                if (!empty($ct['email'])) {
-                                    $emailsRecordatorio['contacto-' . $ct['id']] = $ct['email'];
+                            $hayEmailRecordatorio = false;
+                            foreach ($contactos as $ct):
+                                if (empty($ct['email'])) {
+                                    continue;
                                 }
-                            }
-                            if (empty($emailsRecordatorio)): ?>
-                                <option value="">Sin emails disponibles</option>
-                            <?php else: ?>
-                                <?php foreach ($emailsRecordatorio as $key => $em):
-                                    $label = $key === 'principal'
-                                        ? 'Email principal — ' . $em
-                                        : 'Contacto — ' . $em;
-                                ?>
+                                $hayEmailRecordatorio = true;
+                                $em = $ct['email'];
+                                $label = !empty($ct['es_principal'])
+                                    ? 'Contacto principal — ' . $em
+                                    : ($ct['nombre'] ?? 'Contacto') . ' — ' . $em;
+                            ?>
                                 <option value="<?= e($em) ?>"><?= e($label) ?></option>
-                                <?php endforeach; ?>
+                            <?php endforeach;
+                            if (!$hayEmailRecordatorio): ?>
+                                <option value="">Sin emails disponibles</option>
                             <?php endif; ?>
                         </select>
                     </div>
@@ -1145,6 +1173,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    var mobileMq = window.matchMedia('(max-width: 991.98px)');
+    var tabAgenda = document.getElementById('tabAgenda');
+    var tabActividadMob = document.getElementById('tabActividadMob');
+    var btnTabAgenda = document.getElementById('btnTabAgenda');
+
+    // Inicializa el calendario de Agenda. El ResizeObserver interno se encarga
+    // de reajustar el tamaño cuando el panel obtiene ancho real (fin del fade),
+    // así que aquí basta con construirlo una vez y pedir un updateSize.
+    function ensureAgendaCalendar() {
+        if (!tabAgenda || !tabAgenda.classList.contains('show')) return;
+        var calEl = tabAgenda.querySelector('.inpro-calendario');
+        if (!calEl) return;
+        if (typeof initInproCalendario === 'function') {
+            initInproCalendario(calEl);
+        }
+    }
+
+    // Viewport móvil: la pestaña Agenda (desktop) empieza activa en el HTML,
+    // pero en móvil hay que ocultarla y mostrar tabActividadMob
+    if (mobileMq.matches) {
+        if (tabAgenda) {
+            tabAgenda.classList.remove('show', 'active');
+        }
+        if (btnTabAgenda) {
+            btnTabAgenda.classList.remove('active');
+        }
+        if (tabActividadMob) {
+            tabActividadMob.classList.add('show', 'active');
+        }
+        var mobBtn = document.querySelector('#clientTabsMobile .nav-link');
+        if (mobBtn) mobBtn.classList.add('active');
+    }
+
     // Inyectar visita_id en modales de acción
     document.querySelectorAll('[data-bs-target="#modalRealizar"]').forEach(function (btn) {
         btn.addEventListener('click', function () { document.getElementById('realizarVisitaId').value = btn.dataset.visitaId; });
@@ -1201,28 +1262,54 @@ document.addEventListener('DOMContentLoaded', function () {
     modos.forEach(function (r) { r.addEventListener('change', toggleResultado); });
     toggleResultado();
 
-    // Activar pestaña desde hash
+    // Navegación por hash (redirect desde crear tarea, visita, etc.)
     var hash = location.hash;
-    var mobile = window.matchMedia('(max-width: 991.98px)').matches;
-    if (hash && mobile) {
-        var map = {
-            '#tabAgenda': '#tabActividadMob',
-            '#tabHistorial': '#tabActividadMob',
-            '#tabContactos': '#tabDatosMob',
-            '#tabVentas': '#tabDatosMob'
+    if (hash && mobileMq.matches) {
+        // En móvil, remapear las pestañas desktop a las móviles equivalentes
+        var mobileMap = {
+            '#tabAgenda':   '#tabActividadMob',
+            '#tabHistorial':'#tabActividadMob',
+            '#tabContactos':'#tabDatosMob',
+            '#tabVentas':   '#tabDatosMob'
         };
-        if (map[hash]) hash = map[hash];
+        hash = mobileMap[hash] || hash;
     }
-    if (hash) {
-        var tabBtn = document.querySelector('[data-bs-target="' + hash + '"]');
-        if (tabBtn) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+    if (hash && hash !== '#tabAgenda') {
+        // Cambiar a la pestaña del hash; Agenda pierde show/active correctamente
+        var hashBtn = document.querySelector('[data-bs-target="' + hash + '"]');
+        if (hashBtn) bootstrap.Tab.getOrCreateInstance(hashBtn).show();
     }
+    // Si no hay hash (o hash = #tabAgenda), tabAgenda ya tiene show active en el HTML → init directo
+    ensureAgendaCalendar();
+
+    // Al volver a Agenda desde otra pestaña
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (btn) {
+        btn.addEventListener('shown.bs.tab', function (e) {
+            if (e.currentTarget.getAttribute('data-bs-target') === '#tabAgenda') {
+                ensureAgendaCalendar();
+            }
+        });
+    });
+
+    mobileMq.addEventListener('change', function () {
+        ensureAgendaCalendar();
+    });
 
     // Cambiar etapa pipeline (ficha cliente)
     document.querySelectorAll('.cliente-etapa-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var estadoId = this.dataset.estadoId;
             var nombre   = this.dataset.estadoNombre;
+            var offcanvasEl = document.getElementById('cambiarEtapaOffcanvas');
+            var modalEl = document.getElementById('cambiarEtapaModal');
+            if (offcanvasEl) {
+                var oc = bootstrap.Offcanvas.getInstance(offcanvasEl);
+                if (oc) oc.hide();
+            }
+            if (modalEl) {
+                var md = bootstrap.Modal.getInstance(modalEl);
+                if (md) md.hide();
+            }
             fetch('<?= url('pipeline/mover') ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

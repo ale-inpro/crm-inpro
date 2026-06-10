@@ -210,11 +210,19 @@ if ($busqueda !== '') $filtrosActivos++;
                                 <a href="<?= url('clientes/editar?id=' . $c['id']) ?>" class="btn btn-sm btn-outline-secondary" title="Editar">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                <?php
+                                $actBloq = $actividadBloqueantePorCliente[(int) $c['id']] ?? null;
+                                $noEliminar = $actBloq !== null && array_sum($actBloq) > 0;
+                                ?>
                                 <form method="post" action="<?= url('clientes/eliminar') ?>" class="d-inline">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"
-                                            data-confirm="¿Eliminar el cliente «<?= e($c['razon_social']) ?>»? Esta acción no se puede deshacer.">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            title="<?= $noEliminar ? 'No se puede eliminar: tiene actividad comercial' : 'Eliminar cliente' ?>"
+                                            <?= $noEliminar ? 'disabled' : '' ?>
+                                            <?php if (!$noEliminar): ?>
+                                            data-confirm="¿Eliminar el cliente «<?= e($c['razon_social']) ?>»? No tiene visitas, ventas ni tareas registradas."
+                                            <?php endif; ?>>
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>

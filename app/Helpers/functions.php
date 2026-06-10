@@ -42,6 +42,56 @@ function cif_normalize(?string $cif): ?string
     return strtoupper(preg_replace('/[\s\-]/', '', $cif));
 }
 
+function email_normalize(?string $email): ?string
+{
+    if ($email === null || trim($email) === '') {
+        return null;
+    }
+    return strtolower(trim($email));
+}
+
+function telefono_normalize(?string $telefono): ?string
+{
+    if ($telefono === null || trim($telefono) === '') {
+        return null;
+    }
+    return preg_replace('/[^\d]/', '', $telefono) ?: null;
+}
+
+/**
+ * @return string|null Mensaje de error
+ */
+function contacto_validar_principal(?string $nombre, ?string $email, ?string $telefono): ?string
+{
+    if (trim($nombre ?? '') === '') {
+        return 'El nombre del contacto principal es obligatorio.';
+    }
+
+    $emailNorm = email_normalize($email);
+    $telNorm = telefono_normalize($telefono);
+
+    if ($emailNorm === null && $telNorm === null) {
+        return 'Indica al menos un email o un teléfono del contacto principal.';
+    }
+
+    if ($emailNorm !== null && !filter_var($emailNorm, FILTER_VALIDATE_EMAIL)) {
+        return 'El email del contacto principal no es válido.';
+    }
+
+    return null;
+}
+
+/** @param array<int, array<string, mixed>> $contactos */
+function contacto_principal_desde_lista(array $contactos): ?array
+{
+    foreach ($contactos as $ct) {
+        if (!empty($ct['es_principal'])) {
+            return $ct;
+        }
+    }
+    return $contactos[0] ?? null;
+}
+
 function current_user(): ?array
 {
     return $_SESSION['user'] ?? null;

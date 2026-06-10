@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Models\ClienteModel;
+use App\Models\ContactoModel;
 use App\Models\TareaModel;
 use App\Models\VisitaModel;
 
@@ -93,6 +95,54 @@ class ApiController extends Controller
             'precio_mes_eur' => $importes['precio_mes_eur'],
             'importe_anual_eur' => $importes['importe_anual_eur'],
             'stripe_price_id' => $importes['stripe_price_id'],
+        ]);
+    }
+
+    public function verificarDuplicadoCliente(): void
+    {
+        $this->requireAuth();
+
+        $email = trim($_GET['email'] ?? '') ?: null;
+        $telefono = trim($_GET['telefono'] ?? '') ?: null;
+
+        if (!$email && !$telefono) {
+            $this->json(['duplicado' => false]);
+        }
+
+        $contactoModel = new ContactoModel();
+        $clienteModel = new ClienteModel();
+        $clienteId = $contactoModel->findClienteIdDuplicadoPorContacto($email, $telefono);
+
+        if (!$clienteId) {
+            $this->json(['duplicado' => false]);
+        }
+
+        $cliente = $clienteModel->findById($clienteId);
+        if (!$cliente) {
+            $this->json(['duplicado' => false]);
+        }
+
+        $reemplazo = $clienteModel->evaluarReemplazoDuplicado($clienteId);
+        $nombre = $cliente['razon_social'] ?? 'Cliente sin nombre';
+
+        if ($reemplazo['puede']) {
+            $mensaje = match ($reemplazo['motivo']) {
+                'sin_visitas_realizadas' => "Ya existe «{$nombre}» sin visitas realizadas. Al guardar se archivará y se creará uno nuevo.",
+                'primera_visita_antigua' => "Ya existe «{$nombre}» con primera visita hace más de 6 meses. Al guardar se archivará y se creará uno nuevo.",
+                default => "Ya existe un cliente con ese contacto. Al guardar se archivará «{$nombre}».",
+            };
+        } else {
+            $mensaje = $reemplazo['mensaje'];
+        }
+
+        $this->json([
+            'duplicado' => true,
+            'puede_reemplazar' => $reemplazo['puede'],
+            'mensaje' => $mensaje,
+            'cliente' => [
+                'id' => $clienteId,
+                'razon_social' => $nombre,
+            ],
         ]);
     }
 }

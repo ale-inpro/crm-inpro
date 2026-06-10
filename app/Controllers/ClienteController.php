@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Core\Database;
 use App\Models\AsignacionModel;
 use App\Models\CatalogoModel;
 use App\Models\ClienteModel;
@@ -39,10 +40,20 @@ class ClienteController extends Controller
             $filtros['busqueda'] = $busqueda;
         }
 
+        $clienteModel = new ClienteModel();
+        $clientes = $clienteModel->listForUser($user, $filtros);
+        $actividadBloqueantePorCliente = [];
+        foreach ($clientes as $c) {
+            if (cliente_can_manage($c)) {
+                $actividadBloqueantePorCliente[(int) $c['id']] = $clienteModel->countActividadBloqueante((int) $c['id']);
+            }
+        }
+
         $this->view('clientes/index', [
             'title' => 'Clientes',
             'busqueda' => $busqueda,
-            'clientes' => (new ClienteModel())->listForUser($user, $filtros),
+            'clientes' => $clientes,
+            'actividadBloqueantePorCliente' => $actividadBloqueantePorCliente,
             'empresas' => is_inpro() ? $catalogo->empresasColaboradoras() : [],
             'estados' => $catalogo->estadosPipeline(),
             'filtros' => $filtros,
@@ -74,9 +85,44 @@ class ClienteController extends Controller
     {
         csrf_verify();
         $user = $this->requireAuth();
-        $cifNorm = cif_normalize($_POST['cif'] ?? null);
 
-        if ($cifNorm && (new ClienteModel())->existsCif($cifNorm)) {
+        $razonSocial = trim($_POST['razon_social'] ?? '');
+        if ($razonSocial === '') {
+            flash('error', 'La razón social es obligatoria.');
+            redirect('clientes/nuevo');
+        }
+
+        $contactoNombre = trim($_POST['contacto_nombre'] ?? '');
+        $contactoEmail = trim($_POST['contacto_email'] ?? '') ?: null;
+        $contactoTelefono = trim($_POST['contacto_telefono'] ?? '') ?: null;
+
+        if ($err = contacto_validar_principal($contactoNombre, $contactoEmail, $contactoTelefono)) {
+            flash('error', $err);
+            redirect('clientes/nuevo');
+        }
+
+        $contactoModel = new ContactoModel();
+        $clienteModel = new ClienteModel();
+        $clienteDuplicadoId = $contactoModel->findClienteIdDuplicadoPorContacto($contactoEmail, $contactoTelefono);
+        $clienteDuplicado = null;
+        $reemplazo = null;
+
+        if ($clienteDuplicadoId) {
+            $clienteDuplicado = $clienteModel->findById($clienteDuplicadoId);
+            if (!$clienteDuplicado) {
+                flash('error', 'No se pudo verificar el cliente duplicado.');
+                redirect('clientes/nuevo');
+            }
+
+            $reemplazo = $clienteModel->evaluarReemplazoDuplicado($clienteDuplicadoId);
+            if (!$reemplazo['puede']) {
+                flash('error', $reemplazo['mensaje']);
+                redirect('clientes/nuevo');
+            }
+        }
+
+        $cifNorm = cif_normalize($_POST['cif'] ?? null);
+        if ($cifNorm && $clienteModel->existsCif($cifNorm, $clienteDuplicadoId)) {
             flash('error', 'Ya existe un cliente con ese CIF.');
             redirect('clientes/nuevo');
         }
@@ -97,49 +143,71 @@ class ClienteController extends Controller
             $responsableEmpresaId = (int) $user['id'];
         }
 
-        $clienteModel = new ClienteModel();
-        $clienteId = $clienteModel->create([
-            'razon_social' => trim($_POST['razon_social'] ?? ''),
-            'nombre_comercial' => trim($_POST['nombre_comercial'] ?? '') ?: null,
-            'cif' => trim($_POST['cif'] ?? '') ?: null,
-            'cif_normalizado' => $cifNorm,
-            'ciudad' => trim($_POST['ciudad'] ?? '') ?: null,
-            'provincia' => trim($_POST['provincia'] ?? '') ?: null,
-            'telefono_principal' => trim($_POST['telefono_principal'] ?? '') ?: null,
-            'email_principal' => trim($_POST['email_principal'] ?? '') ?: null,
-            'estado_pipeline_id' => $estadoId,
-            'empresa_colaboradora_id' => $empresaColabId,
-            'responsable_inpro_id' => is_inpro() ? (int) $user['id'] : null,
-            'responsable_empresa_id' => $responsableEmpresaId,
-            'modo_acceso_empresa' => 'edicion',
-            'origen_lead' => is_empresa() ? 'empresa_colaboradora' : 'inpro',
-            'creado_por_usuario_id' => (int) $user['id'],
-        ]);
+        $db = Database::connection();
+        $db->beginTransaction();
 
-        if ($empresaColabId && $responsableEmpresaId) {
-            (new AsignacionModel())->registrar([
-                'cliente_id' => $clienteId,
-                'tipo' => 'asignacion_inicial',
+        try {
+            if ($clienteDuplicadoId && ($reemplazo['puede'] ?? false)) {
+                $clienteModel->archivarParaReemplazo($clienteDuplicadoId);
+                (new AuditoriaService())->log((int) $user['id'], 'clientes', $clienteDuplicadoId, 'reemplazar_duplicado', [
+                    'razon_social_anterior' => $clienteDuplicado['razon_social'] ?? '',
+                    'motivo' => $reemplazo['motivo'],
+                    'reemplazado_por_usuario_id' => (int) $user['id'],
+                    'email_contacto' => $contactoEmail,
+                    'telefono_contacto' => $contactoTelefono,
+                ]);
+            }
+            $clienteId = $clienteModel->create([
+                'razon_social' => $razonSocial,
+                'nombre_comercial' => trim($_POST['nombre_comercial'] ?? '') ?: null,
+                'cif' => trim($_POST['cif'] ?? '') ?: null,
+                'cif_normalizado' => $cifNorm,
+                'ciudad' => trim($_POST['ciudad'] ?? '') ?: null,
+                'provincia' => trim($_POST['provincia'] ?? '') ?: null,
+                'telefono_principal' => $contactoTelefono,
+                'email_principal' => $contactoEmail,
+                'estado_pipeline_id' => $estadoId,
+                'empresa_colaboradora_id' => $empresaColabId,
                 'responsable_inpro_id' => is_inpro() ? (int) $user['id'] : null,
                 'responsable_empresa_id' => $responsableEmpresaId,
-                'empresa_colaboradora_id' => $empresaColabId,
                 'modo_acceso_empresa' => 'edicion',
-                'motivo' => 'Asignación inicial a empresa colaboradora',
-                'realizado_por_id' => (int) $user['id'],
+                'origen_lead' => is_empresa() ? 'empresa_colaboradora' : 'inpro',
+                'creado_por_usuario_id' => (int) $user['id'],
             ]);
-        }
 
-        if (trim($_POST['contacto_nombre'] ?? '') !== '') {
-            (new ContactoModel())->create($clienteId, [
-                'nombre' => trim($_POST['contacto_nombre']),
+            $contactoModel->create($clienteId, [
+                'nombre' => $contactoNombre,
                 'cargo' => trim($_POST['contacto_cargo'] ?? '') ?: null,
-                'email' => trim($_POST['contacto_email'] ?? '') ?: null,
-                'telefono' => trim($_POST['contacto_telefono'] ?? '') ?: null,
+                'email' => $contactoEmail,
+                'telefono' => $contactoTelefono,
                 'es_principal' => 1,
             ]);
+
+            if ($empresaColabId && $responsableEmpresaId) {
+                (new AsignacionModel())->registrar([
+                    'cliente_id' => $clienteId,
+                    'tipo' => 'asignacion_inicial',
+                    'responsable_inpro_id' => is_inpro() ? (int) $user['id'] : null,
+                    'responsable_empresa_id' => $responsableEmpresaId,
+                    'empresa_colaboradora_id' => $empresaColabId,
+                    'modo_acceso_empresa' => 'edicion',
+                    'motivo' => 'Asignación inicial a empresa colaboradora',
+                    'realizado_por_id' => (int) $user['id'],
+                ]);
+            }
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            flash('error', 'No se pudo crear el cliente. Comprueba que el email o teléfono no estén duplicados.');
+            redirect('clientes/nuevo');
         }
 
-        flash('success', 'Cliente creado correctamente.');
+        if ($clienteDuplicadoId) {
+            flash('success', 'Cliente creado. Se archivó un registro anterior duplicado sin actividad relevante.');
+        } else {
+            flash('success', 'Cliente creado correctamente.');
+        }
         redirect('clientes/ver?id=' . $clienteId);
     }
 
@@ -184,8 +252,8 @@ class ClienteController extends Controller
             'usuariosAsignables' => $usuariosAsignables,
             'canEdit' => $clienteSvc->canEdit($user, $cliente),
             'canManageCliente' => $clienteSvc->canManageCliente($user, $cliente),
-            'actividadCliente' => $clienteSvc->canManageCliente($user, $cliente)
-                ? $clienteModel->countActividad($id)
+            'actividadBloqueante' => $clienteSvc->canManageCliente($user, $cliente)
+                ? $clienteModel->countActividadBloqueante($id)
                 : [],
             'canTransferirAInpro' => $clienteSvc->canTransferirAInpro($user, $cliente),
             'canTransferirAEmpresa' => $clienteSvc->canTransferirAEmpresa($user, $cliente),
@@ -259,8 +327,6 @@ class ClienteController extends Controller
             'cif_normalizado' => $cifNorm,
             'ciudad' => trim($_POST['ciudad'] ?? '') ?: null,
             'provincia' => trim($_POST['provincia'] ?? '') ?: null,
-            'telefono_principal' => trim($_POST['telefono_principal'] ?? '') ?: null,
-            'email_principal' => trim($_POST['email_principal'] ?? '') ?: null,
             'estado_pipeline_id' => (int) ($_POST['estado_pipeline_id'] ?? $cliente['estado_pipeline_id']),
         ]);
 
@@ -319,16 +385,9 @@ class ClienteController extends Controller
             redirect('clientes');
         }
 
-        $actividad = $clienteModel->countActividad($id);
-        $total = array_sum($actividad);
-        if ($total > 0) {
-            flash('error', sprintf(
-                'No se puede eliminar: tiene %d visita(s), %d venta(s), %d tarea(s) y %d contacto(s).',
-                $actividad['visitas'],
-                $actividad['ventas'],
-                $actividad['tareas'],
-                $actividad['contactos']
-            ));
+        $actividad = $clienteModel->countActividadBloqueante($id);
+        if (!$clienteModel->puedeEliminarse($id)) {
+            flash('error', $clienteModel->mensajeBloqueoEliminacion($actividad));
             redirect('clientes/ver?id=' . $id);
         }
 

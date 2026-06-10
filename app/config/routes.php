@@ -22,6 +22,7 @@ return [
         'tarifas/nuevo' => ['TarifaController', 'create'],
         'tarifas/editar' => ['TarifaController', 'edit'],
         'api/tarifas/preview' => ['ApiController', 'tarifaPreview'],
+        'api/clientes/verificar-duplicado' => ['ApiController', 'verificarDuplicadoCliente'],
     ],
     'POST' => [
         'login' => ['AuthController', 'login'],

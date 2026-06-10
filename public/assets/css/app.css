@@ -332,6 +332,24 @@ body.app-body {
 .chatter-meta { font-size: .74rem; color: var(--inpro-muted); margin-bottom: .15rem; }
 .chatter-body { font-size: .875rem; }
 
+/* ── Calendario INPRO ── */
+.inpro-calendario-wrap .inpro-calendario {
+  min-height: 420px;
+}
+.inpro-calendario-wrap .fc {
+  --fc-border-color: var(--inpro-border, #dee2e6);
+  --fc-today-bg-color: rgba(26, 127, 75, .06);
+}
+.inpro-calendario-wrap .fc .fc-button-primary {
+  background-color: var(--inpro-green, #1a7f4b);
+  border-color: var(--inpro-green, #1a7f4b);
+}
+.inpro-calendario-wrap .fc .fc-button-primary:not(:disabled).fc-button-active,
+.inpro-calendario-wrap .fc .fc-button-primary:not(:disabled):active {
+  background-color: #14633a;
+  border-color: #14633a;
+}
+
 /* ── Tabs cliente ── */
 .nav-tabs-inpro { border-bottom: 2px solid var(--inpro-border); }
 .nav-tabs-inpro .nav-link {
@@ -695,6 +713,16 @@ table.dataTable tbody tr:hover { background: #f2faf6 !important; }
   font-size: .8rem;
   padding: .5rem .35rem;
   text-align: center;
+}
+/* Ficha cliente: pestañas desktop vs móvil sin romper Bootstrap tabs */
+@media (max-width: 991.98px) {
+  .client-tab-desktop:not(.show) { display: none !important; }
+}
+@media (min-width: 992px) {
+  #tabActividadMob,
+  #tabDatosMob { display: none !important; }
+  #tabActividadMob.show,
+  #tabDatosMob.show { display: none !important; }
 }
 
 /* Fase C — pulido móvil global */

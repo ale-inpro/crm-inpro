@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\ClienteModel;
+use App\Models\ContactoModel;
 
 class ExportController extends Controller
 {
@@ -23,7 +24,10 @@ class ExportController extends Controller
             'Empresa colaboradora', 'Gestionado por', 'Email', 'Teléfono',
         ], ';');
 
+        $contactoModel = new ContactoModel();
+
         foreach ($clientes as $c) {
+            $principal = $contactoModel->principalByCliente((int) $c['id']);
             fputcsv($out, [
                 $c['id'],
                 $c['razon_social'],
@@ -33,8 +37,8 @@ class ExportController extends Controller
                 $c['primera_visita_realizada'] ? 'Sí' : 'No',
                 $c['empresa_colaboradora_nombre'] ?? '',
                 cliente_gestor_etiqueta($c),
-                $c['email_principal'] ?? '',
-                $c['telefono_principal'] ?? '',
+                $principal['email'] ?? '',
+                $principal['telefono'] ?? '',
             ], ';');
         }
 

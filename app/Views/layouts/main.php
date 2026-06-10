@@ -66,6 +66,7 @@ if ($currentUser) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.global.min.js"></script>
 <script src="<?= url('assets/js/app.js') ?>"></script>
 <script>
 // Helper: mostrar toast
@@ -94,10 +95,13 @@ function getCsrfToken() {
 }
 
 // Confirmación genérica — reemplaza confirm() nativo
-function confirmarAccion(msg, callback) {
+function confirmarAccion(msg, callback, opts) {
+    opts = opts || {};
     document.getElementById('modalConfirmarMensaje').textContent = msg;
     var okBtn = document.getElementById('modalConfirmarOk');
     var nuevo = okBtn.cloneNode(true);
+    nuevo.className = 'btn btn-sm px-4 ' + (opts.okClass || 'btn-danger');
+    nuevo.textContent = opts.okLabel || 'Confirmar';
     okBtn.parentNode.replaceChild(nuevo, okBtn);
     nuevo.addEventListener('click', function () {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmar')).hide();

@@ -39,25 +39,15 @@ $usuariosPorEmpresa = $usuariosPorEmpresa ?? [];
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">Ciudad</label>
                 <input type="text" name="ciudad" class="form-control"
                        value="<?= e($cliente['ciudad'] ?? '') ?>">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">Provincia</label>
                 <input type="text" name="provincia" class="form-control"
                        value="<?= e($cliente['provincia'] ?? '') ?>">
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Teléfono</label>
-                <input type="text" name="telefono_principal" class="form-control"
-                       value="<?= e($cliente['telefono_principal'] ?? '') ?>">
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Email</label>
-                <input type="email" name="email_principal" class="form-control"
-                       value="<?= e($cliente['email_principal'] ?? '') ?>">
             </div>
 
             <?php if ($puedeAsignarColab && !empty($empresas)): ?>
@@ -92,10 +82,28 @@ $usuariosPorEmpresa = $usuariosPorEmpresa ?? [];
             <?php endif; ?>
 
             <?php if (!$esEdicion): ?>
-            <div class="col-12"><hr><h2 class="h6">Contacto principal</h2></div>
-            <div class="col-md-4"><label class="form-label">Nombre</label><input type="text" name="contacto_nombre" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Cargo</label><input type="text" name="contacto_cargo" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Teléfono</label><input type="text" name="contacto_telefono" class="form-control"></div>
+            <div class="col-12">
+                <hr>
+                <h2 class="h6 mb-1">Contacto principal *</h2>
+                <p class="small text-muted mb-0">Obligatorio al crear el cliente. Indica al menos email o teléfono.</p>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nombre *</label>
+                <input type="text" name="contacto_nombre" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Cargo</label>
+                <input type="text" name="contacto_cargo" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input type="email" name="contacto_email" id="contactoEmail" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Teléfono</label>
+                <input type="text" name="contacto_telefono" id="contactoTelefono" class="form-control">
+            </div>
+            <div class="col-12 d-none" id="alertaDuplicadoContacto" role="alert"></div>
             <?php endif; ?>
         </div>
     </div>
@@ -133,12 +141,142 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     selEmpresa.addEventListener('change', actualizarResponsables);
+});
+</script>
+<?php endif; ?>
+
+<?php if (!$esEdicion): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('formCliente');
+    if (!form) return;
+
+    var emailEl = document.getElementById('contactoEmail');
+    var telEl = document.getElementById('contactoTelefono');
+    var alerta = document.getElementById('alertaDuplicadoContacto');
+    var estadoDuplicado = { duplicado: false, puedeReemplazar: false, mensaje: '' };
+    var debounceTimer = null;
+    var apiUrl = <?= json_encode(url('api/clientes/verificar-duplicado'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+    function verificarDuplicado() {
+        var email = (emailEl && emailEl.value || '').trim();
+        var tel = (telEl && telEl.value || '').trim();
+        if (!email && !tel) {
+            estadoDuplicado = { duplicado: false, puedeReemplazar: false, mensaje: '' };
+            if (alerta) alerta.classList.add('d-none');
+            return;
+        }
+        consultarDuplicado()
+            .then(aplicarEstadoDuplicado)
+            .catch(function () {});
+    }
+
+    function onContactoChange() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(verificarDuplicado, 400);
+    }
+
+    if (emailEl) {
+        emailEl.addEventListener('input', onContactoChange);
+        emailEl.addEventListener('blur', verificarDuplicado);
+    }
+    if (telEl) {
+        telEl.addEventListener('input', onContactoChange);
+        telEl.addEventListener('blur', verificarDuplicado);
+    }
+
+    function paramsContacto() {
+        var params = new URLSearchParams();
+        var email = (emailEl && emailEl.value || '').trim();
+        var tel = (telEl && telEl.value || '').trim();
+        if (email) params.set('email', email);
+        if (tel) params.set('telefono', tel);
+        return params;
+    }
+
+    function consultarDuplicado() {
+        return fetch(apiUrl + '?' + paramsContacto().toString(), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); });
+    }
+
+    function aplicarEstadoDuplicado(data) {
+        estadoDuplicado = {
+            duplicado: !!data.duplicado,
+            puedeReemplazar: !!data.puede_reemplazar,
+            mensaje: data.mensaje || '',
+        };
+        if (!alerta) return;
+        if (!data.duplicado) {
+            alerta.classList.add('d-none');
+            return;
+        }
+        alerta.className = 'alert py-2 small mb-0 ' + (data.puede_reemplazar ? 'alert-warning' : 'alert-danger');
+        alerta.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i> ' + (data.mensaje || '');
+        alerta.classList.remove('d-none');
+    }
+
+    var envioDirecto = false;
+
+    function enviarFormulario() {
+        envioDirecto = true;
+        form.submit();
+    }
+
+    function procesarEnvioTrasDuplicado() {
+        if (estadoDuplicado.duplicado && !estadoDuplicado.puedeReemplazar) {
+            if (typeof showToast === 'function') {
+                showToast(estadoDuplicado.mensaje || 'Ya existe un cliente con ese contacto.', 'error');
+            }
+            return;
+        }
+        if (estadoDuplicado.duplicado && estadoDuplicado.puedeReemplazar) {
+            var msg = estadoDuplicado.mensaje || 'Se archivará el cliente existente. ¿Continuar?';
+            if (typeof confirmarAccion === 'function') {
+                confirmarAccion(msg, enviarFormulario, { okClass: 'btn-inpro', okLabel: 'Continuar' });
+            } else {
+                enviarFormulario();
+            }
+            return;
+        }
+        enviarFormulario();
+    }
 
     form.addEventListener('submit', function (e) {
-        if (selEmpresa.value && !selResp.value) {
-            e.preventDefault();
-            alert('Debes seleccionar un responsable de la empresa colaboradora.');
+        if (envioDirecto) {
+            envioDirecto = false;
+            return;
         }
+
+        e.preventDefault();
+
+        var email = (emailEl && emailEl.value || '').trim();
+        var tel = (telEl && telEl.value || '').trim();
+        if (!email && !tel) {
+            if (typeof showToast === 'function') {
+                showToast('Indica al menos un email o un teléfono del contacto principal.', 'warning');
+            }
+            return;
+        }
+
+        var selEmpresa = document.getElementById('empresaColaboradora');
+        var selResp = document.getElementById('responsableEmpresa');
+        if (selEmpresa && selEmpresa.value && selResp && !selResp.value) {
+            if (typeof showToast === 'function') {
+                showToast('Debes seleccionar un responsable de la empresa colaboradora.', 'warning');
+            }
+            return;
+        }
+
+        consultarDuplicado()
+            .then(function (data) {
+                aplicarEstadoDuplicado(data);
+                procesarEnvioTrasDuplicado();
+            })
+            .catch(function () {
+                if (typeof showToast === 'function') {
+                    showToast('No se pudo comprobar si el contacto ya existe. Inténtalo de nuevo.', 'error');
+                }
+            });
     });
 });
 </script>
